@@ -30,6 +30,10 @@ import {
 } from "@/lib/data/tree";
 import type { Task, TaskNode } from "@/lib/types";
 import { QuickAdd, TaskRow } from "@/components/task/TaskRow";
+import { BulkBar } from "@/components/task/BulkBar";
+import { useSelection } from "@/lib/data/useSelection";
+import { useTaskKeys } from "@/lib/data/useTaskKeys";
+import { useDeleteTask } from "@/lib/data/useDeleteTask";
 import { cn } from "@/lib/utils";
 
 const SORT_KEY = "sb-tree-sort";
@@ -38,16 +42,22 @@ export function TreeView({
   onOpenTask,
   selectedId,
   tasks: tasksProp,
+  crossProject = false,
 }: {
   onOpenTask: (t: Task) => void;
   selectedId?: string;
-  /** Cross-project task set (My Tasks). When given, creation affordances are hidden. */
+  /** Task set to render. Defaults to the current project's tasks; pass a
+   *  filtered or cross-project set to override. */
   tasks?: Task[];
+  /** True when the set spans projects (All my tasks): creation and reordering
+   *  are hidden, because there is no single project to write into and `order`
+   *  is scoped per project. Kept separate from `tasks` so a filtered
+   *  single-project set does not lose its add affordances. */
+  crossProject?: boolean;
 }) {
   const { user } = useAuth();
   const ctx = useWorkspace();
   const tasks = tasksProp ?? ctx.tasks;
-  const crossProject = tasksProp != null;
   const actions = useTaskActions();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [addingUnder, setAddingUnder] = useState<string | null>(null);
@@ -143,6 +153,29 @@ export function TreeView({
       return next;
     });
 
+  /* ------------------------- selection + keyboard ------------------------- */
+
+  const orderedIds = useMemo(() => visible.map((n) => n.id), [visible]);
+  const selection = useSelection(orderedIds);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const confirmDelete = useDeleteTask(actions);
+
+  useTaskKeys({
+    rows: visible,
+    selection,
+    cursor,
+    setCursor,
+    onOpen: onOpenTask,
+    onToggleDone: (t) => void actions.toggleDone(t),
+    onDelete: (t) => void confirmDelete(t.id, t.title),
+    onNew: () => {
+      reveal();
+      addRef.current?.focus();
+    },
+    // Dragging owns the pointer and the keyboard would fight it.
+    enabled: !activeId,
+  });
+
   /* --------------------------- the add composer --------------------------- */
 
   const addRef = useRef<HTMLInputElement>(null);
@@ -158,26 +191,6 @@ export function TreeView({
     });
   };
 
-  // `n` focuses the composer from anywhere in the tree. Ignored while typing,
-  // and while a modifier is held so browser and OS shortcuts still work.
-  useEffect(() => {
-    if (crossProject) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "n" && e.key !== "N") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const el = e.target as HTMLElement | null;
-      if (el?.isContentEditable) return;
-      if (el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
-      // Not while a modal or the task drawer is up.
-      if (document.querySelector("[aria-modal], [data-overlay-open]")) return;
-      e.preventDefault();
-      reveal();
-      addRef.current?.focus();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [crossProject]);
-
   const activeNode = activeId ? visible.find((n) => n.id === activeId) : null;
 
   const rows = (
@@ -189,6 +202,12 @@ export function TreeView({
             actions={actions}
             collapsed={collapsed.has(node.id)}
             selected={node.id === selectedId}
+            picked={selection.isSelected(node.id)}
+            cursored={node.id === cursor}
+            onPick={(e) => {
+              setCursor(node.id);
+              selection.handleClick(node.id, e);
+            }}
             draggable={reorderable}
             dragging={node.id === activeId}
             dropDepth={node.id === activeId ? projection?.depth : undefined}
@@ -218,7 +237,7 @@ export function TreeView({
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4">
+    <div className="mx-auto max-w-4xl px-2 py-4 sm:px-4">
       {!crossProject && tasks.length > 0 && (
         <div className="mb-2 flex items-center justify-end gap-1 px-1">
           <button
@@ -289,10 +308,14 @@ export function TreeView({
           row used to sit at the very bottom and needed a full scroll to reach
           on a long project. Pinned to the bottom of the scrollport it stays one
           key away, and the row it creates lands directly above it. */}
+      <BulkBar selection={selection} tasks={tasks} />
+
       {!crossProject && (
         <div
           ref={composerRef}
-          className="sticky bottom-0 z-10 -mx-4 mt-1.5 border-t border-border bg-bg/95 px-4 py-1.5 backdrop-blur-sm"
+          // Negative margins must track the container's own padding, which is
+          // tighter on phones, or the bar overflows its scrollport.
+          className="sticky bottom-0 z-10 -mx-2 mt-1.5 border-t border-border bg-bg/95 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:-mx-4 sm:px-4 sm:pb-1.5"
         >
           <QuickAdd
             inputRef={addRef}

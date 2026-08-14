@@ -14,6 +14,7 @@ import type { Page, Project, Task, Workspace } from "@/lib/types";
 import {
   ensureInbox,
   seedNewUser,
+  watchAllProjects,
   watchAllTasks,
   watchPages,
   watchProjects,
@@ -24,6 +25,9 @@ import {
 interface WorkspaceState {
   workspaces: Workspace[];
   projects: Project[];
+  /** Every project the user can see, across all workspaces. Needed to act on a
+   *  task from a view that spans projects (Today, All my tasks, the drawer). */
+  allProjects: Project[];
   tasks: Task[];
   /** Every task in the current workspace across all its projects. */
   workspaceTasks: Task[];
@@ -63,6 +67,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [allUserTasks, setAllUserTasks] = useState<Task[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
 
   // 1. Watch workspaces; seed a new user exactly once.
@@ -174,6 +179,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return watchAllTasks(user.uid, setAllUserTasks);
   }, [user]);
 
+  // Every project across every workspace. Held here rather than re-subscribed
+  // per page — Today and All my tasks each used to open their own copy of this
+  // same listener.
+  useEffect(() => {
+    if (!user) {
+      setAllProjects([]);
+      return;
+    }
+    return watchAllProjects(user.uid, setAllProjects);
+  }, [user]);
+
   // Watch the current workspace's pages (Notion docs).
   useEffect(() => {
     if (!user || !currentWorkspaceId) {
@@ -217,6 +233,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return {
       workspaces,
       projects: visibleProjects,
+      allProjects,
       tasks,
       workspaceTasks,
       allTasks: allUserTasks,
@@ -250,7 +267,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setCurrentWorkspaceId(workspaceId);
       },
     };
-  }, [workspaces, projects, tasks, workspaceTasks, allUserTasks, pages, currentWorkspaceId, currentProjectId, wsLoaded, seeding, tasksLoading]);
+  }, [workspaces, projects, allProjects, tasks, workspaceTasks, allUserTasks, pages, currentWorkspaceId, currentProjectId, wsLoaded, seeding, tasksLoading]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

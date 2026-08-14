@@ -32,14 +32,19 @@ export function Modal({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] grid place-items-start justify-center overflow-y-auto p-4 pt-[12vh]">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto p-0 sm:items-start sm:p-4 sm:pt-[12vh]">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
         onClick={onClose}
       />
       <div
-        className={cn("card relative z-10 animate-scale-in p-5 shadow-pop lit")}
-        style={{ width, maxWidth: "calc(100vw - 2rem)" }}
+        // A phone gets a bottom sheet (full width, square bottom corners, rising
+        // from the edge); from sm up it is the centred dialog it always was.
+        className={cn(
+          "card relative z-10 w-full animate-slide-up rounded-b-none p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-pop lit",
+          "sm:w-[var(--modal-w)] sm:max-w-[calc(100vw-2rem)] sm:animate-scale-in sm:rounded-[11px] sm:pb-5"
+        )}
+        style={{ "--modal-w": `${width}px` } as React.CSSProperties}
         role="dialog"
         aria-modal
       >

@@ -7,6 +7,7 @@ import { ChevronRight, CornerDownRight, GripVertical, MoreHorizontal, Trash2 } f
 import type { TaskNode } from "@/lib/types";
 import type { TaskActions } from "@/lib/data/useTaskActions";
 import { TREE_INDENT, childProgress } from "@/lib/data/tree";
+import { useDeleteTask } from "@/lib/data/useDeleteTask";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { StatusControl } from "@/components/ui/StatusControl";
 import { DueDateChip } from "@/components/ui/DueDateChip";
@@ -27,6 +28,9 @@ export function TaskRow({
   draggable = false,
   dragging = false,
   dropDepth,
+  picked = false,
+  cursored = false,
+  onPick,
 }: {
   node: TaskNode;
   actions: TaskActions;
@@ -42,8 +46,16 @@ export function TaskRow({
   dragging?: boolean;
   /** Live projected depth while dragging, so the indent previews where it lands. */
   dropDepth?: number;
+  /** In the current multi-selection. */
+  picked?: boolean;
+  /** The keyboard cursor is on this row. Distinct from `picked`: moving the
+   *  cursor does not select, which is what makes shift-extend work. */
+  cursored?: boolean;
+  /** Row click with modifiers, for multi-select. */
+  onPick?: (e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
 }) {
   const { tasks } = useWorkspace();
+  const confirmDelete = useDeleteTask(actions);
   const hasChildren = node.children.length > 0;
   const { done, total } = childProgress(tasks, node.id);
   const [title, setTitle] = useState(node.title);
@@ -68,6 +80,7 @@ export function TaskRow({
   return (
     <div
       ref={draggable ? sortable.setNodeRef : undefined}
+      data-task-row={node.id}
       style={{
         paddingLeft: 8 + depth * TREE_INDENT,
         // The dragged row itself stays put and only previews its landing
@@ -79,9 +92,40 @@ export function TaskRow({
       className={cn(
         "group flex items-center gap-1.5 rounded-md pr-2 transition-colors",
         selected ? "bg-accent/[0.07] ring-1 ring-inset ring-accent/25" : "hover:bg-surface-2",
+        picked && "bg-accent/[0.09]",
+        cursored && !selected && "ring-1 ring-inset ring-border-strong",
         dragging && "bg-accent/[0.06] opacity-60 ring-1 ring-inset ring-accent/30"
       )}
     >
+      {/* Selection checkbox. Hidden until hover or selection so the row stays
+          calm, but always present on touch where hover does not exist. */}
+      {onPick && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPick({ shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey });
+          }}
+          aria-label={picked ? `Deselect ${node.title}` : `Select ${node.title}`}
+          aria-pressed={picked}
+          className={cn(
+            "grid h-5 w-5 shrink-0 place-items-center rounded transition-opacity",
+            picked ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-3.5 w-3.5 place-items-center rounded-[3px] border transition-colors",
+              picked ? "border-accent bg-accent text-accent-fg" : "border-border-strong"
+            )}
+          >
+            {picked && (
+              <svg viewBox="0 0 10 8" className="h-2 w-2 fill-none stroke-current stroke-[2]">
+                <path d="M1 4l2.5 2.5L9 1" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+        </button>
+      )}
       {/* drag grip */}
       {draggable && (
         <button
@@ -89,7 +133,7 @@ export function TaskRow({
           {...sortable.listeners}
           aria-label={`Reorder ${node.title}`}
           title="Drag to reorder. Drag sideways to nest."
-          className="grid h-5 w-4 shrink-0 cursor-grab touch-none place-items-center rounded text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+          className="grid h-6 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-text-faint transition-opacity hover:text-text active:cursor-grabbing sm:h-5 sm:w-4 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -146,7 +190,9 @@ export function TaskRow({
         />
 
         {/* hover actions */}
-        <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Hover-only actions are unreachable on touch, so they stay visible
+            below sm and reveal on hover from sm up. */}
+        <div className="flex items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
           {onAddSubtask && (
             <button
               onClick={onAddSubtask}
@@ -184,8 +230,8 @@ export function TaskRow({
                   danger
                   icon={<Trash2 className="h-4 w-4" />}
                   onClick={() => {
-                    actions.remove(node.id);
                     close();
+                    void confirmDelete(node.id, node.title);
                   }}
                 >
                   Delete{total > 0 ? ` + ${total} subtask${total === 1 ? "" : "s"}` : ""}

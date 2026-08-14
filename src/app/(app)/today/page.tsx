@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { CalendarCheck2, ChevronLeft, ChevronRight, Download, NotebookPen } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { saveDayPlan, watchAllProjects, watchDayPlan } from "@/lib/data/firestore";
+import { saveDayPlan, watchDayPlan } from "@/lib/data/firestore";
 import { addDays, format } from "date-fns";
 import { dueLabel, greeting, toISODate, todayISO } from "@/lib/date";
-import type { Project, Task, Workspace } from "@/lib/types";
+import type { Task, Workspace } from "@/lib/types";
 import { DueDateChip } from "@/components/ui/DueDateChip";
 import { AssigneeStack } from "@/components/task/Pickers";
 import { PriorityDot } from "@/components/ui/PriorityIndicator";
@@ -19,7 +19,7 @@ import { cn, taskAssignees } from "@/lib/utils";
 
 export default function TodayPage() {
   const { user } = useAuth();
-  const { allTasks, workspaces, openWorkspaceProject } = useWorkspace();
+  const { allTasks, allProjects: projects, workspaces, openWorkspaceProject } = useWorkspace();
   const router = useRouter();
   const today = todayISO();
 
@@ -29,12 +29,6 @@ export default function TodayPage() {
   const isToday = date === today;
   const shiftDate = (days: number) => setDate((d) => toISODate(addDays(new Date(d), days)));
 
-  // Project names across every workspace, so each task can show its project.
-  const [projects, setProjects] = useState<Project[]>([]);
-  useEffect(() => {
-    if (!user) return;
-    return watchAllProjects(user.uid, setProjects);
-  }, [user]);
   const projName = useMemo(() => {
     const m = new Map<string, string>();
     projects.forEach((p) => m.set(p.id, p.isInbox ? "Inbox" : p.name));
@@ -118,7 +112,7 @@ export default function TodayPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-accent">
           <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </span>
@@ -128,7 +122,7 @@ export default function TodayPage() {
           </h1>
           <div className="text-xs text-text-muted">{format(new Date(date), "EEEE, d MMMM")}</div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex w-full items-center gap-1.5 sm:w-auto">
           <div className="flex items-center gap-1">
             <button
               onClick={() => shiftDate(-1)}
@@ -172,7 +166,7 @@ export default function TodayPage() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-6xl gap-5 px-5 py-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-6 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Left: the day's tasks */}
         <section className="space-y-6">
           <TaskGroup
@@ -252,7 +246,7 @@ function TaskGroup({
             <button
               key={t.id}
               onClick={() => onOpen(t)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
+              className="flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-surface-2 sm:py-2.5"
             >
               <PriorityDot priority={t.priority} />
               <span className="flex-1 truncate text-[13px] text-text">{t.title}</span>
@@ -261,7 +255,7 @@ function TaskGroup({
                   <AssigneeStack assignees={taskAssignees(t)} size={18} max={3} />
                 </span>
               )}
-              <span className="hidden shrink-0 items-center gap-1 text-2xs text-text-faint sm:flex">
+              <span className="hidden shrink-0 items-center gap-1 text-2xs text-text-faint md:flex">
                 {wsById.get(t.workspaceId)?.emoji}
                 {wsById.get(t.workspaceId)?.name}
                 {projName.get(t.projectId) && (
@@ -326,7 +320,7 @@ function Notebook({
   const isToday = date === today;
 
   return (
-    <section className="lg:sticky lg:top-6 lg:h-[calc(100vh-8.5rem)]">
+    <section className="min-h-[320px] lg:sticky lg:top-6 lg:h-[calc(100vh-8.5rem)]">
       <div className="card flex h-full flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
           <NotebookPen className="h-4 w-4 text-accent" />

@@ -19,7 +19,10 @@ import { db } from "@/lib/firebase/client";
 import { PROJECT_COLORS, slugStatus } from "@/lib/constants";
 import type {
   AgentCard,
+  Assignee,
   Chat,
+  EventVerb,
+  Notification,
   ChatMessage,
   DayPlan,
   Page,
@@ -28,6 +31,7 @@ import type {
   RetrievedChunk,
   Sprint,
   Task,
+  TimelineEntry,
   Whiteboard,
   Workspace,
   WorkspaceMember,
@@ -393,6 +397,67 @@ export async function deleteTaskTree(ids: string[]) {
   await batch.commit();
 }
 
+/**
+ * Put deleted tasks back, ids and all. Undo for a delete, without the
+ * soft-delete plumbing (a `deletedAt` field would need every watcher, rule and
+ * query in the app to learn about it). Writing back to the same document ids
+ * keeps parentId links inside a restored subtree intact.
+ */
+export async function restoreTasks(tasks: Task[]) {
+  if (!tasks.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  tasks.forEach(({ id, ...data }) => batch.set(doc(database, "tasks", id), data));
+  await batch.commit();
+}
+
+/**
+ * Apply one patch to many tasks in a single batch. Powers the bulk bar.
+ * Returns the previous values of the touched fields so the caller can undo,
+ * which matters more here than anywhere else — a bulk edit that goes wrong goes
+ * wrong across dozens of rows at once.
+ */
+export async function bulkUpdateTasks(
+  tasks: Task[],
+  patch: Partial<Task>
+): Promise<{ id: string; before: Partial<Task> }[]> {
+  if (!tasks.length) return [];
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  const keys = Object.keys(patch) as (keyof Task)[];
+
+  const undo = tasks.map((t) => {
+    const before: Partial<Task> = {};
+    keys.forEach((k) => {
+      // undefined is not storable; a cleared field reads back as null.
+      (before as Record<string, unknown>)[k] = t[k] ?? null;
+    });
+    return { id: t.id, before };
+  });
+
+  tasks.forEach((t) =>
+    batch.update(doc(database, "tasks", t.id), {
+      ...withCompletion(patch),
+      updatedAt: now,
+    })
+  );
+  await batch.commit();
+  return undo;
+}
+
+/** Restore per-task field values captured by bulkUpdateTasks. */
+export async function bulkRestore(entries: { id: string; before: Partial<Task> }[]) {
+  if (!entries.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  entries.forEach(({ id, before }) =>
+    batch.update(doc(database, "tasks", id), { ...before, updatedAt: now })
+  );
+  await batch.commit();
+}
+
 /** Persist a re-ordered / re-parented set of tasks after a drag. */
 export async function commitTaskMoves(moves: { id: string; order: number; parentId?: string | null; status?: Task["status"] }[]) {
   const batch = writeBatch(requireDb());
@@ -406,6 +471,209 @@ export async function commitTaskMoves(moves: { id: string; order: number; parent
     }
     batch.update(doc(requireDb(), "tasks", m.id), patch);
   });
+  await batch.commit();
+}
+
+/**
+ * Move a task and its whole subtree into another project.
+ *
+ * The subtree has to move together — leaving children behind would orphan them
+ * into a project whose tree no longer contains their parent. `memberIds` is
+ * re-derived from the destination, since access follows the project: a task
+ * carrying its old project's list into a new one would be visible to the wrong
+ * people, or invisible to the right ones.
+ */
+export async function moveTasksToProject(ids: string[], destination: Project) {
+  if (!ids.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  ids.forEach((id) =>
+    batch.update(doc(database, "tasks", id), {
+      projectId: destination.id,
+      workspaceId: destination.workspaceId,
+      memberIds: destination.memberIds ?? [],
+      // Sprints are project-scoped, so a moved task cannot keep its old one.
+      sprintId: null,
+      updatedAt: now,
+    })
+  );
+  await batch.commit();
+}
+
+/**
+ * Apply a batch of assignee changes in one write. The legacy single-assignee
+ * fields are kept mirroring the first entry so anything still reading
+ * `assigneeId` (print view, older data, the members board grouping) stays
+ * correct. Used by the members board for drag, and by its undo.
+ */
+export async function commitAssignments(changes: { id: string; after: Assignee[] }[]) {
+  if (!changes.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  changes.forEach(({ id, after }) => {
+    const first = after[0] ?? null;
+    batch.update(doc(database, "tasks", id), {
+      assignees: after,
+      assigneeId: first?.id ?? null,
+      assigneeName: first?.name ?? null,
+      assigneeAvatar: first?.avatar ?? null,
+      updatedAt: now,
+    });
+  });
+  await batch.commit();
+}
+
+/* --------------------------- timeline + notifications --------------------------- */
+
+/** A task's comments and system events, oldest first. */
+export function watchTimeline(
+  uid: string,
+  taskId: string,
+  cb: (entries: TimelineEntry[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(requireDb(), "timeline"),
+    where("memberIds", "array-contains", uid)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<TimelineEntry, "id">) }))
+        .filter((e) => e.taskId === taskId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+      cb(rows);
+    },
+    (err) => console.error("watchTimeline error", err)
+  );
+}
+
+export async function addComment(input: {
+  task: Task;
+  author: { uid: string; name: string; photoURL?: string | null };
+  body: string;
+  mentions: string[];
+}): Promise<string> {
+  const ref = await addDoc(collection(requireDb(), "timeline"), {
+    kind: "comment",
+    taskId: input.task.id,
+    workspaceId: input.task.workspaceId,
+    projectId: input.task.projectId,
+    uid: input.author.uid,
+    name: input.author.name,
+    photoURL: input.author.photoURL ?? null,
+    body: input.body,
+    mentions: input.mentions,
+    createdAt: Date.now(),
+    editedAt: null,
+    memberIds: input.task.memberIds ?? [],
+  } satisfies Omit<TimelineEntry, "id">);
+  return ref.id;
+}
+
+export async function updateComment(id: string, body: string, mentions: string[]) {
+  await updateDoc(doc(requireDb(), "timeline", id), { body, mentions, editedAt: Date.now() });
+}
+
+export async function deleteComment(id: string) {
+  await deleteDoc(doc(requireDb(), "timeline", id));
+}
+
+/**
+ * Record a system event on a task's timeline.
+ *
+ * Deliberately fire-and-forget: an event is a nicety, and a failure to write
+ * one must never make the underlying edit look like it failed. Callers do not
+ * await it.
+ */
+export function logEvent(input: {
+  task: Pick<Task, "id" | "workspaceId" | "projectId" | "memberIds">;
+  actor: { uid: string; name: string; photoURL?: string | null };
+  verb: EventVerb;
+  from?: string | null;
+  to?: string | null;
+}) {
+  void addDoc(collection(requireDb(), "timeline"), {
+    kind: "event",
+    taskId: input.task.id,
+    workspaceId: input.task.workspaceId,
+    projectId: input.task.projectId,
+    uid: input.actor.uid,
+    name: input.actor.name,
+    photoURL: input.actor.photoURL ?? null,
+    verb: input.verb,
+    from: input.from ?? null,
+    to: input.to ?? null,
+    createdAt: Date.now(),
+    memberIds: input.task.memberIds ?? [],
+  } satisfies Omit<TimelineEntry, "id">).catch((e) => console.error("logEvent failed", e));
+}
+
+/** Every notification for one user, newest first. */
+export function watchNotifications(uid: string, cb: (n: Notification[]) => void): Unsubscribe {
+  const q = query(collection(requireDb(), "notifications"), where("uid", "==", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Notification, "id">) }))
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 100);
+      cb(rows);
+    },
+    (err) => console.error("watchNotifications error", err)
+  );
+}
+
+/**
+ * Fan out a notification to several recipients. One document each, so an unread
+ * count is a plain query and marking one read never touches anyone else's.
+ * Never notifies the actor about their own action.
+ */
+export function notify(input: {
+  recipients: string[];
+  kind: Notification["kind"];
+  actor: { uid: string; name: string; photoURL?: string | null };
+  task: Pick<Task, "id" | "title" | "workspaceId" | "projectId">;
+  detail?: string;
+}) {
+  const targets = [...new Set(input.recipients)].filter((uid) => uid && uid !== input.actor.uid);
+  if (!targets.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  targets.forEach((uid) => {
+    const ref = doc(collection(database, "notifications"));
+    batch.set(ref, {
+      uid,
+      kind: input.kind,
+      actorName: input.actor.name,
+      actorPhoto: input.actor.photoURL ?? null,
+      taskId: input.task.id,
+      taskTitle: input.task.title,
+      workspaceId: input.task.workspaceId,
+      projectId: input.task.projectId,
+      detail: input.detail ?? "",
+      read: false,
+      createdAt: now,
+      memberIds: [uid],
+    } satisfies Omit<Notification, "id">);
+  });
+  void batch.commit().catch((e) => console.error("notify failed", e));
+}
+
+export async function markNotificationRead(id: string, read = true) {
+  await updateDoc(doc(requireDb(), "notifications", id), { read });
+}
+
+export async function markAllNotificationsRead(items: Notification[]) {
+  const unread = items.filter((n) => !n.read);
+  if (!unread.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  unread.forEach((n) => batch.update(doc(database, "notifications", n.id), { read: true }));
   await batch.commit();
 }
 

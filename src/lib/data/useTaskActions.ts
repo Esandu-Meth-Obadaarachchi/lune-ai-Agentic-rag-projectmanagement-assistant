@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "./WorkspaceContext";
-import { createTask, deleteTaskTree, updateTask } from "./firestore";
+import { createTask, deleteTaskTree, logEvent, notify, restoreTasks, updateTask } from "./firestore";
+import { statusMeta } from "@/lib/constants";
 import { collectSubtreeIds } from "./tree";
 import { deleteCalendarEvent, syncTaskToCalendar } from "@/lib/api";
 import { toISODate } from "@/lib/date";
@@ -18,22 +19,45 @@ function advance(iso: string, r: Recurrence): string {
 }
 
 /**
- * Task mutations pre-bound to the current project/workspace/user. Views call
- * these; nobody else touches Firestore for tasks directly. New tasks are placed
- * at the end of their sibling group by order.
+ * Task mutations pre-bound to a project/workspace/user. Views call these;
+ * nobody else touches Firestore for tasks directly. New tasks are placed at the
+ * end of their sibling group by order.
+ *
+ * Pass `projectId` when acting on a task that may not belong to the currently
+ * selected project — the drawer opened from Today or All my tasks, for
+ * instance. Without it, creates were landing in whichever project happened to
+ * be selected, carrying that project's workspaceId and memberIds, so a subtask
+ * added from a cross-project view ended up somewhere its parent's team could
+ * not see.
  */
-export function useTaskActions() {
+export function useTaskActions(opts: { projectId?: string | null } = {}) {
   const { user } = useAuth();
-  const { currentWorkspace, currentProject, tasks } = useWorkspace();
+  const ctx = useWorkspace();
+  const { currentWorkspace, currentProject, allProjects, workspaces, tasks, allTasks } = ctx;
+  const { projectId } = opts;
 
   return useMemo(() => {
-    const ready = Boolean(user && currentWorkspace && currentProject);
+    // Resolve the target project: an explicit override first, else the
+    // selected one. The workspace always follows the project, never the UI.
+    const target = projectId
+      ? (allProjects.find((p) => p.id === projectId) ?? currentProject)
+      : currentProject;
+    const targetWorkspace = target
+      ? (workspaces.find((w) => w.id === target.workspaceId) ?? currentWorkspace)
+      : currentWorkspace;
+
+    const ready = Boolean(user && targetWorkspace && target);
     // A task inherits the access list of its project (so project-scoped
     // teammates see it), falling back to the workspace for older projects.
-    const memberIds = currentProject?.memberIds ?? currentWorkspace?.memberIds ?? [];
+    const memberIds = target?.memberIds ?? targetWorkspace?.memberIds ?? [];
 
+    // Sibling order is computed against the target project's own tasks, which
+    // for a cross-project drawer are not the ones in the current view.
+    const scope = target && target.id !== currentProject?.id ? allTasks : tasks;
     const nextOrder = (parentId: string | null) => {
-      const siblings = tasks.filter((t) => t.parentId === parentId);
+      const siblings = scope.filter(
+        (t) => t.parentId === parentId && t.projectId === target?.id
+      );
       return siblings.length ? Math.max(...siblings.map((s) => s.order)) + 1 : Date.now();
     };
 
@@ -43,8 +67,8 @@ export function useTaskActions() {
     ) => {
       if (!ready || !title.trim()) return;
       const id = await createTask({
-        workspaceId: currentWorkspace!.id,
-        projectId: currentProject!.id,
+        workspaceId: targetWorkspace!.id,
+        projectId: target!.id,
         parentId: opts.parentId ?? null,
         title: title.trim(),
         memberIds,
@@ -70,14 +94,40 @@ export function useTaskActions() {
       if (id) await updateTask(id, { recurrence: task.recurrence, tags: task.tags });
     };
 
+    // Reads resolve against every visible task, not just the current project's
+    // slice, so acting on a task from a cross-project view still finds it.
+    const lookup = (id: string) => allTasks.find((t) => t.id === id) ?? tasks.find((t) => t.id === id);
+
+    const actor = {
+      uid: user?.uid ?? "",
+      name: user?.displayName ?? "You",
+      photoURL: user?.photoURL ?? null,
+    };
+
+    /** Record a timeline event for a task we already hold. Fire-and-forget by
+     *  design: a missing event must never make the edit look like it failed. */
+    const event = (
+      id: string,
+      verb: Parameters<typeof logEvent>[0]["verb"],
+      from?: string | null,
+      to?: string | null
+    ) => {
+      const t = lookup(id);
+      if (!t || !user) return;
+      logEvent({ task: t, actor, verb, from, to });
+    };
+
     const applyStatus = async (id: string, status: TaskStatus) => {
-      const prev = tasks.find((t) => t.id === id);
+      const prev = lookup(id);
       await updateTask(id, { status });
+      if (prev && prev.status !== status) {
+        event(id, "status", statusMeta(prev.status).label, statusMeta(status).label);
+      }
       if (status === "done" && prev && prev.status !== "done") await spawnIfRecurring(prev);
     };
 
     const withEntries = (id: string, fn: (entries: TimeEntry[]) => TimeEntry[]) => {
-      const t = tasks.find((x) => x.id === id);
+      const t = lookup(id);
       if (!t) return;
       return updateTask(id, { timeEntries: fn(t.timeEntries ?? []) });
     };
@@ -94,8 +144,10 @@ export function useTaskActions() {
       setStatus: applyStatus,
       setPriority: (id: string, priority: TaskPriority) => updateTask(id, { priority }),
       setDue: async (id: string, dueDate: string | null) => {
+        const prev = lookup(id)?.dueDate ?? null;
         // Clearing the date clears the time too.
         await updateTask(id, dueDate ? { dueDate } : { dueDate: null, dueTime: null, dueEndTime: null });
+        if (prev !== dueDate) event(id, "due", prev, dueDate);
         syncTaskToCalendar(id);
       },
       setDueTime: async (id: string, dueTime: string | null) => {
@@ -108,27 +160,62 @@ export function useTaskActions() {
         syncTaskToCalendar(id);
       },
       setTags: (id: string, tags: string[]) => updateTask(id, { tags }),
-      setEstimate: (id: string, estimate: number | null) => updateTask(id, { estimate }),
+      /** Blocked-by links. `dependencies` has existed on the type since the
+       *  first release with nothing reading or writing it. */
+      setDependencies: (id: string, dependencies: string[]) => updateTask(id, { dependencies }),
+      setEstimate: async (id: string, estimate: number | null) => {
+        const prev = lookup(id)?.estimate ?? null;
+        await updateTask(id, { estimate });
+        if (prev !== estimate) {
+          event(id, "estimate", prev == null ? null : String(prev), estimate == null ? null : `${estimate} points`);
+        }
+      },
       setSprint: (id: string, sprintId: string | null) => updateTask(id, { sprintId }),
-      setAssignees: (id: string, list: Assignee[]) => {
+      setAssignees: async (id: string, list: Assignee[]) => {
+        const task = lookup(id);
+        const before = task ? (task.assignees ?? []) : [];
         // Keep the legacy single-assignee fields mirroring the first entry so
         // anything still reading assigneeId (print, older data) stays correct.
         const first = list[0] ?? null;
-        return updateTask(id, {
+        await updateTask(id, {
           assignees: list,
           assigneeId: first?.id ?? null,
           assigneeName: first?.name ?? null,
           assigneeAvatar: first?.avatar ?? null,
         });
+        const added = list.filter((a) => !before.some((b) => b.id === a.id));
+        const gone = before.filter((b) => !list.some((a) => a.id === b.id));
+        added.forEach((a) => event(id, "assigned", null, a.name));
+        gone.forEach((a) => event(id, "unassigned", a.name, null));
+        // Tell people they picked up work; never tell the actor about themselves.
+        if (task && added.length && user) {
+          notify({
+            recipients: added.map((a) => a.id),
+            kind: "assigned",
+            actor,
+            task,
+          });
+        }
       },
       toggleDone: (t: Task) => applyStatus(t.id, t.status === "done" ? "todo" : "done"),
-      remove: (id: string) => {
-        const ids = collectSubtreeIds(tasks, id);
-        tasks
-          .filter((t) => ids.includes(t.id) && t.googleEventId)
+      /** How many descendants a delete would take with it. Callers use this to
+       *  decide whether to confirm before destroying a subtree. */
+      subtreeCount: (id: string) => Math.max(collectSubtreeIds(scope, id).length - 1, 0),
+      /**
+       * Delete a task and its descendants. Returns the removed documents so the
+       * caller can offer undo — nothing else in the app records them, and once
+       * the batch commits they are gone.
+       */
+      remove: async (id: string): Promise<Task[]> => {
+        const ids = collectSubtreeIds(scope, id);
+        const removed = scope.filter((t) => ids.includes(t.id));
+        removed
+          .filter((t) => t.googleEventId)
           .forEach((t) => deleteCalendarEvent(t.googleEventId as string));
-        return deleteTaskTree(ids);
+        await deleteTaskTree(ids);
+        return removed;
       },
+      restore: (removed: Task[]) => restoreTasks(removed),
       patch: (id: string, patch: Partial<Task>) => updateTask(id, patch),
 
       // recurrence
@@ -150,7 +237,7 @@ export function useTaskActions() {
       deleteTimeEntry: (id: string, entryId: string) =>
         withEntries(id, (e) => e.filter((x) => x.id !== entryId)),
     };
-  }, [user, currentWorkspace, currentProject, tasks]);
+  }, [user, currentWorkspace, currentProject, allProjects, workspaces, tasks, allTasks, projectId]);
 }
 
 export type TaskActions = ReturnType<typeof useTaskActions>;

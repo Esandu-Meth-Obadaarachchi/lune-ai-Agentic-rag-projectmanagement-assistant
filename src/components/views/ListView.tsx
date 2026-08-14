@@ -25,15 +25,18 @@ function sortTasks(a: Task, b: Task): number {
 export function ListView({
   onOpenTask,
   tasks: tasksProp,
+  crossProject = false,
 }: {
   onOpenTask: (t: Task) => void;
-  /** Cross-project task set (My Tasks). Uses the built-in statuses and hides add rows. */
+  /** Task set to render. Defaults to the current project's tasks. */
   tasks?: Task[];
+  /** True when the set spans projects; uses the built-in statuses and hides
+   *  add rows. Separate from `tasks` so filtering keeps them. */
+  crossProject?: boolean;
 }) {
   const { user } = useAuth();
   const ctx = useWorkspace();
   const tasks = tasksProp ?? ctx.tasks;
-  const crossProject = tasksProp != null;
   const actions = useTaskActions();
   const statuses = useMemo(
     () => projectStatuses(crossProject ? null : ctx.currentProject),
@@ -67,17 +70,22 @@ export function ListView({
     return m;
   }, [tasks]);
 
+  // Same orphan promotion as the board: across projects a subtask assigned to
+  // you must still appear even when its parent is not in the set.
+  const present = useMemo(() => new Set(tasks.map((t) => t.id)), [tasks]);
   const groups = useMemo(() => {
     const g: Record<string, Task[]> = {};
     statuses.forEach((s) => (g[s.id] = []));
-    tasks.filter((t) => !t.parentId).forEach((t) => (g[t.status] ?? g.todo).push(t));
+    tasks
+      .filter((t) => !t.parentId || !present.has(t.parentId))
+      .forEach((t) => (g[t.status] ?? g.todo).push(t));
     Object.values(g).forEach((arr) => arr.sort(sortMineFirst));
     return g;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, sortMineFirst, statuses.map((s) => s.id).join(",")]);
+  }, [tasks, present, sortMineFirst, statuses.map((s) => s.id).join(",")]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4">
+    <div className="mx-auto max-w-4xl px-2 py-4 sm:px-4">
       {statuses.map((meta) => {
         const status = meta.id;
         const rows = groups[status] ?? [];

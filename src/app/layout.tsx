@@ -13,6 +13,9 @@ export const viewport: Viewport = {
   themeColor: "#07080b",
   width: "device-width",
   initialScale: 1,
+  // Lets the app paint under the notch and home indicator, which is what makes
+  // env(safe-area-inset-*) meaningful in the sheets and the toast stack.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
