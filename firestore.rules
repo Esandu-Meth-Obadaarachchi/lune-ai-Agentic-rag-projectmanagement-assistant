@@ -32,6 +32,14 @@ service cloud.firestore {
       allow update, delete: if isMember(resource.data);
     }
 
+    // Sprints. memberIds mirrors the sprint's project, so a project-scoped
+    // teammate sees their project's sprints and nobody else's.
+    match /sprints/{id} {
+      allow read: if isMember(resource.data);
+      allow create: if isMember(request.resource.data);
+      allow update, delete: if isMember(resource.data);
+    }
+
     // Live presence on a task. A user may only write their own presence doc
     // (doc id is `${taskId}_${uid}`), and only within a workspace they belong to.
     match /presence/{id} {

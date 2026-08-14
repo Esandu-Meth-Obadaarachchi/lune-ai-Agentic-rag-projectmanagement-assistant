@@ -15,6 +15,8 @@ import { MemberBoard } from "@/components/views/MemberBoard";
 import { WhiteboardView } from "@/components/views/WhiteboardView";
 import { ProjectPages } from "@/components/pages/ProjectPages";
 import { TeamView } from "@/components/project/TeamView";
+import { SprintView } from "@/components/project/SprintView";
+import { BacklogView } from "@/components/project/BacklogView";
 import { TaskDrawer } from "@/components/task/TaskDrawer";
 import { RowSkeleton } from "@/components/ui/Skeleton";
 import { Logo } from "@/components/ui/Logo";
@@ -97,6 +99,10 @@ export default function ProjectViewPage() {
           <ListView onOpenTask={setSelected} />
         ) : tab === "calendar" ? (
           <CalendarView onOpenTask={setSelected} />
+        ) : tab === "sprints" ? (
+          <SprintView project={currentProject} onOpenTask={setSelected} />
+        ) : tab === "backlog" ? (
+          <BacklogView project={currentProject} onOpenTask={setSelected} />
         ) : tab === "map" ? (
           <MindMapView onOpenTask={setSelected} />
         ) : tab === "members" ? (

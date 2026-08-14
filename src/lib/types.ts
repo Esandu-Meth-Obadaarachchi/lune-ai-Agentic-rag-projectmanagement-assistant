@@ -180,6 +180,53 @@ export interface Task {
   timeEntries?: TimeEntry[];
   /** Linked Google Calendar event id (when calendar sync is on). */
   googleEventId?: string | null;
+  /** The sprint this task is committed to. null/absent => it sits in the backlog. */
+  sprintId?: string | null;
+  /** Story points. Drives sprint commitment, burndown and velocity. */
+  estimate?: number | null;
+  /** When the task first moved to done. Set by the data layer, never by hand —
+   *  `updatedAt` moves on every edit, so it cannot answer "what shipped last
+   *  week". Absent on tasks completed before this field existed. */
+  completedAt?: number | null;
+}
+
+/** Sprint lifecycle. Exactly one sprint per project is ever `active`. */
+export type SprintStatus = "planned" | "active" | "completed";
+
+/**
+ * A time-boxed block of work inside one project. Tasks join a sprint through
+ * `Task.sprintId`; anything open without one is the backlog.
+ */
+export interface Sprint {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  name: string;
+  /** What the sprint is for, in a sentence. Shown at the top of the board. */
+  goal?: string;
+  /** yyyy-mm-dd */
+  startDate: string;
+  /** yyyy-mm-dd, inclusive. */
+  endDate: string;
+  status: SprintStatus;
+  createdAt: number;
+  /** Set when the sprint is closed. Velocity reads completed sprints only. */
+  completedAt?: number | null;
+  /** Points committed at the moment the sprint started. Frozen on purpose:
+   *  scope added mid-sprint must not quietly rewrite what was promised. */
+  committedPoints?: number | null;
+  memberIds: string[];
+}
+
+/** One day of a sprint burndown. Derived, never stored. */
+export interface BurndownPoint {
+  date: string;
+  /** Points still open at the end of this day. */
+  remaining: number;
+  /** The straight line from committed to zero across the sprint. */
+  ideal: number;
+  /** False for days after today, so the chart stops the real line at today. */
+  actual: boolean;
 }
 
 /** Task augmented with its resolved children — built client-side from a flat list. */

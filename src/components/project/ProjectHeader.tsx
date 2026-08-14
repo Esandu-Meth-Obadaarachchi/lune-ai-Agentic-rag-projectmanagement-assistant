@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { BookText, CalendarDays, Clock, Download, FileText, KanbanSquare, ListTree, Network, PencilRuler, Rows3, Sparkles, Users, UsersRound } from "lucide-react";
+import { BookText, CalendarDays, Clock, Download, FileText, KanbanSquare, Layers, ListTree, Network, PencilRuler, Rocket, Rows3, Sparkles, Users, UsersRound } from "lucide-react";
 import type { Project, Task } from "@/lib/types";
 import { dueState } from "@/lib/date";
 import { exportTimeCSV } from "@/lib/export";
@@ -11,12 +11,25 @@ import { Dropdown, MenuItem } from "@/components/ui/Dropdown";
 import { PrintView } from "./PrintView";
 import { cn } from "@/lib/utils";
 
-export type ViewTab = "tree" | "board" | "list" | "calendar" | "map" | "draw" | "docs" | "members" | "team";
+export type ViewTab =
+  | "tree"
+  | "board"
+  | "list"
+  | "calendar"
+  | "sprints"
+  | "backlog"
+  | "map"
+  | "draw"
+  | "docs"
+  | "members"
+  | "team";
 
 const TABS: { id: ViewTab; label: string; icon: typeof ListTree }[] = [
   { id: "tree", label: "Tree", icon: ListTree },
   { id: "board", label: "Board", icon: KanbanSquare },
   { id: "list", label: "List", icon: Rows3 },
+  { id: "sprints", label: "Sprints", icon: Rocket },
+  { id: "backlog", label: "Backlog", icon: Layers },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "map", label: "Map", icon: Network },
   { id: "draw", label: "Draw", icon: PencilRuler },

@@ -166,6 +166,12 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             <Prop label="Repeat">
               <RecurrencePicker value={live.recurrence} onChange={(r) => actions.setRecurrence(live.id, r)} />
             </Prop>
+            <Prop label="Estimate">
+              <EstimatePicker
+                value={live.estimate ?? null}
+                onChange={(v) => actions.setEstimate(live.id, v)}
+              />
+            </Prop>
             <Prop label="Tags">
               <TagEditor tags={live.tags} onChange={(t) => actions.setTags(live.id, t)} />
             </Prop>
@@ -282,6 +288,38 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
         </footer>
       </aside>
     </>
+  );
+}
+
+/** Story points. Fibonacci presets, because relative sizing stops pretending to
+ *  be hours somewhere around 8. Kept inline rather than in Pickers.tsx since the
+ *  backlog rows carry their own denser variant. */
+const POINTS = [1, 2, 3, 5, 8, 13];
+
+function EstimatePicker({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {POINTS.map((p) => (
+        <button
+          key={p}
+          onClick={() => onChange(value === p ? null : p)}
+          title={`${p} point${p === 1 ? "" : "s"}`}
+          className={
+            value === p
+              ? "mono grid h-6 w-6 place-items-center rounded bg-accent text-2xs text-accent-fg"
+              : "mono grid h-6 w-6 place-items-center rounded text-2xs text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+          }
+        >
+          {p}
+        </button>
+      ))}
+    </div>
   );
 }
 
