@@ -21,6 +21,8 @@ import type {
   AgentCard,
   Assignee,
   Chat,
+  EventVerb,
+  Notification,
   ChatMessage,
   DayPlan,
   Page,
@@ -29,6 +31,7 @@ import type {
   RetrievedChunk,
   Sprint,
   Task,
+  TimelineEntry,
   Whiteboard,
   Workspace,
   WorkspaceMember,
@@ -472,6 +475,158 @@ export async function commitAssignments(changes: { id: string; after: Assignee[]
       updatedAt: now,
     });
   });
+  await batch.commit();
+}
+
+/* --------------------------- timeline + notifications --------------------------- */
+
+/** A task's comments and system events, oldest first. */
+export function watchTimeline(
+  uid: string,
+  taskId: string,
+  cb: (entries: TimelineEntry[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(requireDb(), "timeline"),
+    where("memberIds", "array-contains", uid)
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<TimelineEntry, "id">) }))
+        .filter((e) => e.taskId === taskId)
+        .sort((a, b) => a.createdAt - b.createdAt);
+      cb(rows);
+    },
+    (err) => console.error("watchTimeline error", err)
+  );
+}
+
+export async function addComment(input: {
+  task: Task;
+  author: { uid: string; name: string; photoURL?: string | null };
+  body: string;
+  mentions: string[];
+}): Promise<string> {
+  const ref = await addDoc(collection(requireDb(), "timeline"), {
+    kind: "comment",
+    taskId: input.task.id,
+    workspaceId: input.task.workspaceId,
+    projectId: input.task.projectId,
+    uid: input.author.uid,
+    name: input.author.name,
+    photoURL: input.author.photoURL ?? null,
+    body: input.body,
+    mentions: input.mentions,
+    createdAt: Date.now(),
+    editedAt: null,
+    memberIds: input.task.memberIds ?? [],
+  } satisfies Omit<TimelineEntry, "id">);
+  return ref.id;
+}
+
+export async function updateComment(id: string, body: string, mentions: string[]) {
+  await updateDoc(doc(requireDb(), "timeline", id), { body, mentions, editedAt: Date.now() });
+}
+
+export async function deleteComment(id: string) {
+  await deleteDoc(doc(requireDb(), "timeline", id));
+}
+
+/**
+ * Record a system event on a task's timeline.
+ *
+ * Deliberately fire-and-forget: an event is a nicety, and a failure to write
+ * one must never make the underlying edit look like it failed. Callers do not
+ * await it.
+ */
+export function logEvent(input: {
+  task: Pick<Task, "id" | "workspaceId" | "projectId" | "memberIds">;
+  actor: { uid: string; name: string; photoURL?: string | null };
+  verb: EventVerb;
+  from?: string | null;
+  to?: string | null;
+}) {
+  void addDoc(collection(requireDb(), "timeline"), {
+    kind: "event",
+    taskId: input.task.id,
+    workspaceId: input.task.workspaceId,
+    projectId: input.task.projectId,
+    uid: input.actor.uid,
+    name: input.actor.name,
+    photoURL: input.actor.photoURL ?? null,
+    verb: input.verb,
+    from: input.from ?? null,
+    to: input.to ?? null,
+    createdAt: Date.now(),
+    memberIds: input.task.memberIds ?? [],
+  } satisfies Omit<TimelineEntry, "id">).catch((e) => console.error("logEvent failed", e));
+}
+
+/** Every notification for one user, newest first. */
+export function watchNotifications(uid: string, cb: (n: Notification[]) => void): Unsubscribe {
+  const q = query(collection(requireDb(), "notifications"), where("uid", "==", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Notification, "id">) }))
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 100);
+      cb(rows);
+    },
+    (err) => console.error("watchNotifications error", err)
+  );
+}
+
+/**
+ * Fan out a notification to several recipients. One document each, so an unread
+ * count is a plain query and marking one read never touches anyone else's.
+ * Never notifies the actor about their own action.
+ */
+export function notify(input: {
+  recipients: string[];
+  kind: Notification["kind"];
+  actor: { uid: string; name: string; photoURL?: string | null };
+  task: Pick<Task, "id" | "title" | "workspaceId" | "projectId">;
+  detail?: string;
+}) {
+  const targets = [...new Set(input.recipients)].filter((uid) => uid && uid !== input.actor.uid);
+  if (!targets.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  targets.forEach((uid) => {
+    const ref = doc(collection(database, "notifications"));
+    batch.set(ref, {
+      uid,
+      kind: input.kind,
+      actorName: input.actor.name,
+      actorPhoto: input.actor.photoURL ?? null,
+      taskId: input.task.id,
+      taskTitle: input.task.title,
+      workspaceId: input.task.workspaceId,
+      projectId: input.task.projectId,
+      detail: input.detail ?? "",
+      read: false,
+      createdAt: now,
+      memberIds: [uid],
+    } satisfies Omit<Notification, "id">);
+  });
+  void batch.commit().catch((e) => console.error("notify failed", e));
+}
+
+export async function markNotificationRead(id: string, read = true) {
+  await updateDoc(doc(requireDb(), "notifications", id), { read });
+}
+
+export async function markAllNotificationsRead(items: Notification[]) {
+  const unread = items.filter((n) => !n.read);
+  if (!unread.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  unread.forEach((n) => batch.update(doc(database, "notifications", n.id), { read: true }));
   await batch.commit();
 }
 

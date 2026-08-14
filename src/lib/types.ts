@@ -168,6 +168,13 @@ export interface Task {
   /** Task ids this task depends on. */
   dependencies: string[];
   linkedDocs: LinkedDoc[];
+  /**
+   * Denormalised access list, mirroring the task's project. Written on every
+   * create and re-derived on move; `firestore.rules` gates every read and write
+   * on it. Optional only because the type predates the field — in practice
+   * every stored task has one.
+   */
+  memberIds?: string[];
   /** Fractional-ish integer used to order siblings within a status column / level. */
   order: number;
   createdAt: number;
@@ -300,6 +307,76 @@ export interface Presence {
   name: string;
   photoURL?: string | null;
   updatedAt: number;
+  memberIds: string[];
+}
+
+/**
+ * One entry on a task's timeline. Comments and system events share a collection
+ * so the drawer renders a single chronological thread rather than the two
+ * separate tabs Jira makes you switch between.
+ */
+export type TimelineKind = "comment" | "event";
+
+/** What a system event recorded. Kept coarse on purpose — a line per field edit
+ *  would bury the conversation. */
+export type EventVerb =
+  | "created"
+  | "status"
+  | "assigned"
+  | "unassigned"
+  | "due"
+  | "sprint"
+  | "estimate"
+  | "moved";
+
+export interface TimelineEntry {
+  id: string;
+  kind: TimelineKind;
+  taskId: string;
+  workspaceId: string;
+  projectId: string;
+  /** Author for a comment; the actor for an event. */
+  uid: string;
+  name: string;
+  photoURL?: string | null;
+  /** Comment body, with mentions stored as @[Name](uid). */
+  body?: string;
+  /** uids mentioned in the body, denormalised so notifications need no parse. */
+  mentions?: string[];
+  /** Event only. */
+  verb?: EventVerb;
+  /** Event only: human-readable before/after, already resolved to labels. */
+  from?: string | null;
+  to?: string | null;
+  createdAt: number;
+  /** Set when a comment has been edited. */
+  editedAt?: number | null;
+  memberIds: string[];
+}
+
+/**
+ * Something that happened to a user and is worth telling them about. One doc
+ * per recipient per event, so the unread count is a plain query and marking one
+ * read never touches anyone else's.
+ */
+export type NotificationKind = "assigned" | "mentioned" | "due_soon" | "comment";
+
+export interface Notification {
+  id: string;
+  /** Recipient. Also the only entry in memberIds — these are strictly personal. */
+  uid: string;
+  kind: NotificationKind;
+  /** Who caused it. */
+  actorName: string;
+  actorPhoto?: string | null;
+  taskId: string;
+  taskTitle: string;
+  workspaceId: string;
+  projectId: string;
+  /** Short context line, e.g. the comment excerpt. */
+  detail?: string;
+  read: boolean;
+  createdAt: number;
   memberIds: string[];
 }
 

@@ -21,6 +21,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { AssigneePicker, AssigneeStack, DuePicker, PrioritySelect, RecurrencePicker, TagEditor } from "@/components/task/Pickers";
 import { QuickAdd } from "@/components/task/TaskRow";
 import { TimeTracker } from "@/components/task/TimeTracker";
+import { TaskTimeline } from "@/components/task/TaskTimeline";
 
 export function TaskDrawer({
   task,
@@ -274,6 +275,11 @@ export function TaskDrawer({
               ))}
             </div>
             <QuickAdd placeholder="Add subtask" onAdd={(t) => actions.addSubtask(live.id, t)} />
+          </div>
+
+          {/* comments + system events */}
+          <div className="mt-5 border-t border-border pt-4">
+            <TaskTimeline task={live} />
           </div>
 
           {/* related from knowledge base (smart linking) */}

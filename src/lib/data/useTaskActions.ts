@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "./WorkspaceContext";
-import { createTask, deleteTaskTree, restoreTasks, updateTask } from "./firestore";
+import { createTask, deleteTaskTree, logEvent, notify, restoreTasks, updateTask } from "./firestore";
+import { statusMeta } from "@/lib/constants";
 import { collectSubtreeIds } from "./tree";
 import { deleteCalendarEvent, syncTaskToCalendar } from "@/lib/api";
 import { toISODate } from "@/lib/date";
@@ -97,9 +98,31 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
     // slice, so acting on a task from a cross-project view still finds it.
     const lookup = (id: string) => allTasks.find((t) => t.id === id) ?? tasks.find((t) => t.id === id);
 
+    const actor = {
+      uid: user?.uid ?? "",
+      name: user?.displayName ?? "You",
+      photoURL: user?.photoURL ?? null,
+    };
+
+    /** Record a timeline event for a task we already hold. Fire-and-forget by
+     *  design: a missing event must never make the edit look like it failed. */
+    const event = (
+      id: string,
+      verb: Parameters<typeof logEvent>[0]["verb"],
+      from?: string | null,
+      to?: string | null
+    ) => {
+      const t = lookup(id);
+      if (!t || !user) return;
+      logEvent({ task: t, actor, verb, from, to });
+    };
+
     const applyStatus = async (id: string, status: TaskStatus) => {
       const prev = lookup(id);
       await updateTask(id, { status });
+      if (prev && prev.status !== status) {
+        event(id, "status", statusMeta(prev.status).label, statusMeta(status).label);
+      }
       if (status === "done" && prev && prev.status !== "done") await spawnIfRecurring(prev);
     };
 
@@ -121,8 +144,10 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
       setStatus: applyStatus,
       setPriority: (id: string, priority: TaskPriority) => updateTask(id, { priority }),
       setDue: async (id: string, dueDate: string | null) => {
+        const prev = lookup(id)?.dueDate ?? null;
         // Clearing the date clears the time too.
         await updateTask(id, dueDate ? { dueDate } : { dueDate: null, dueTime: null, dueEndTime: null });
+        if (prev !== dueDate) event(id, "due", prev, dueDate);
         syncTaskToCalendar(id);
       },
       setDueTime: async (id: string, dueTime: string | null) => {
@@ -135,18 +160,39 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
         syncTaskToCalendar(id);
       },
       setTags: (id: string, tags: string[]) => updateTask(id, { tags }),
-      setEstimate: (id: string, estimate: number | null) => updateTask(id, { estimate }),
+      setEstimate: async (id: string, estimate: number | null) => {
+        const prev = lookup(id)?.estimate ?? null;
+        await updateTask(id, { estimate });
+        if (prev !== estimate) {
+          event(id, "estimate", prev == null ? null : String(prev), estimate == null ? null : `${estimate} points`);
+        }
+      },
       setSprint: (id: string, sprintId: string | null) => updateTask(id, { sprintId }),
-      setAssignees: (id: string, list: Assignee[]) => {
+      setAssignees: async (id: string, list: Assignee[]) => {
+        const task = lookup(id);
+        const before = task ? (task.assignees ?? []) : [];
         // Keep the legacy single-assignee fields mirroring the first entry so
         // anything still reading assigneeId (print, older data) stays correct.
         const first = list[0] ?? null;
-        return updateTask(id, {
+        await updateTask(id, {
           assignees: list,
           assigneeId: first?.id ?? null,
           assigneeName: first?.name ?? null,
           assigneeAvatar: first?.avatar ?? null,
         });
+        const added = list.filter((a) => !before.some((b) => b.id === a.id));
+        const gone = before.filter((b) => !list.some((a) => a.id === b.id));
+        added.forEach((a) => event(id, "assigned", null, a.name));
+        gone.forEach((a) => event(id, "unassigned", a.name, null));
+        // Tell people they picked up work; never tell the actor about themselves.
+        if (task && added.length && user) {
+          notify({
+            recipients: added.map((a) => a.id),
+            kind: "assigned",
+            actor,
+            task,
+          });
+        }
       },
       toggleDone: (t: Task) => applyStatus(t.id, t.status === "done" ? "todo" : "done"),
       /** How many descendants a delete would take with it. Callers use this to

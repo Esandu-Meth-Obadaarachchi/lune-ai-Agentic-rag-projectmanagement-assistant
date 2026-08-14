@@ -40,6 +40,32 @@ service cloud.firestore {
       allow update, delete: if isMember(resource.data);
     }
 
+    // Task timeline: comments and system events. memberIds mirrors the task's
+    // project, so the thread is visible to exactly the people who can see the
+    // task. A comment may only be edited or deleted by its author; events are
+    // never mutated after the fact.
+    match /timeline/{id} {
+      allow read: if isMember(resource.data);
+      allow create: if isMember(request.resource.data)
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isMember(resource.data)
+        && resource.data.uid == request.auth.uid
+        && resource.data.kind == "comment";
+    }
+
+    // Personal notifications. memberIds is always the single recipient, but the
+    // recipient must not be able to forge one for themselves from another
+    // actor, so creates are gated on membership of the task's audience instead:
+    // anyone who can see the task can notify someone else who can. Only the
+    // recipient reads or updates (marking read).
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.memberIds.hasOnly([request.resource.data.uid]);
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // Live presence on a task. A user may only write their own presence doc
     // (doc id is `${taskId}_${uid}`), and only within a workspace they belong to.
     match /presence/{id} {

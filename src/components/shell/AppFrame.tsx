@@ -7,6 +7,7 @@ import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { Logo } from "@/components/ui/Logo";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette, openCommandPalette } from "./CommandPalette";
+import { NotificationBell } from "./NotificationBell";
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { seeding, currentWorkspace } = useWorkspace();
@@ -46,6 +47,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           {currentWorkspace ? `${currentWorkspace.emoji} ${currentWorkspace.name}` : "Lune AI"}
         </span>
         {/* No keyboard on a phone, so the palette needs a visible way in. */}
+        <NotificationBell />
         <button
           onClick={openCommandPalette}
           aria-label="Search"

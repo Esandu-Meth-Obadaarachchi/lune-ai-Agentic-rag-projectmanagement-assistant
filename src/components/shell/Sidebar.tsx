@@ -35,6 +35,7 @@ import { Field, Modal, inputClass } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { openCommandPalette } from "./CommandPalette";
 import { InviteMailbox } from "./InviteMailbox";
+import { NotificationBell } from "./NotificationBell";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 export function Sidebar({
@@ -137,6 +138,7 @@ export function Sidebar({
         <div className="min-w-0 flex-1">
           <WorkspaceSwitcher />
         </div>
+        <NotificationBell />
         <InviteMailbox />
         {onToggleCollapse && (
           <button
