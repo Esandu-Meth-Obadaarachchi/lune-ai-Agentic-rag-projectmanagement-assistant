@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, CornerDownRight, MoreHorizontal, Trash2 } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ChevronRight, CornerDownRight, GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
 import type { TaskNode } from "@/lib/types";
 import type { TaskActions } from "@/lib/data/useTaskActions";
-import { childProgress } from "@/lib/data/tree";
+import { TREE_INDENT, childProgress } from "@/lib/data/tree";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { StatusControl } from "@/components/ui/StatusControl";
 import { DueDateChip } from "@/components/ui/DueDateChip";
@@ -22,6 +24,9 @@ export function TaskRow({
   onOpen,
   onAddSubtask,
   selected,
+  draggable = false,
+  dragging = false,
+  dropDepth,
 }: {
   node: TaskNode;
   actions: TaskActions;
@@ -31,6 +36,12 @@ export function TaskRow({
   /** Omitted in cross-project views (My Tasks) where there is no single target project. */
   onAddSubtask?: () => void;
   selected?: boolean;
+  /** Registers the row as a sortable and shows its grip. Tree, manual order only. */
+  draggable?: boolean;
+  /** This row is the one being dragged. */
+  dragging?: boolean;
+  /** Live projected depth while dragging, so the indent previews where it lands. */
+  dropDepth?: number;
 }) {
   const { tasks } = useWorkspace();
   const hasChildren = node.children.length > 0;
@@ -49,14 +60,41 @@ export function TaskRow({
     else if (!t) setTitle(node.title);
   };
 
+  // Registered unconditionally so hook order stays stable; the listeners are
+  // only attached to the grip when `draggable` is on.
+  const sortable = useSortable({ id: node.id, disabled: !draggable });
+  const depth = dropDepth ?? node.depth;
+
   return (
     <div
+      ref={draggable ? sortable.setNodeRef : undefined}
+      style={{
+        paddingLeft: 8 + depth * TREE_INDENT,
+        // The dragged row itself stays put and only previews its landing
+        // indent; the overlay is what follows the cursor. Other rows still
+        // translate to open the gap.
+        transform: draggable && !dragging ? CSS.Translate.toString(sortable.transform) : undefined,
+        transition: draggable && !dragging ? sortable.transition : undefined,
+      }}
       className={cn(
         "group flex items-center gap-1.5 rounded-md pr-2 transition-colors",
-        selected ? "bg-accent/[0.07] ring-1 ring-inset ring-accent/25" : "hover:bg-surface-2"
+        selected ? "bg-accent/[0.07] ring-1 ring-inset ring-accent/25" : "hover:bg-surface-2",
+        dragging && "bg-accent/[0.06] opacity-60 ring-1 ring-inset ring-accent/30"
       )}
-      style={{ paddingLeft: 8 + node.depth * 20 }}
     >
+      {/* drag grip */}
+      {draggable && (
+        <button
+          {...sortable.attributes}
+          {...sortable.listeners}
+          aria-label={`Reorder ${node.title}`}
+          title="Drag to reorder. Drag sideways to nest."
+          className="grid h-5 w-4 shrink-0 cursor-grab touch-none place-items-center rounded text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
+
       {/* caret */}
       <button
         onClick={onToggleCollapse}
