@@ -91,7 +91,7 @@ export function TaskRow({
           {...sortable.listeners}
           aria-label={`Reorder ${node.title}`}
           title="Drag to reorder. Drag sideways to nest."
-          className="grid h-5 w-4 shrink-0 cursor-grab touch-none place-items-center rounded text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+          className="grid h-6 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-text-faint transition-opacity hover:text-text active:cursor-grabbing sm:h-5 sm:w-4 sm:opacity-0 sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
@@ -148,7 +148,9 @@ export function TaskRow({
         />
 
         {/* hover actions */}
-        <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+        {/* Hover-only actions are unreachable on touch, so they stay visible
+            below sm and reveal on hover from sm up. */}
+        <div className="flex items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
           {onAddSubtask && (
             <button
               onClick={onAddSubtask}

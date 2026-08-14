@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { FileText, Link2, Sparkles, Trash2, X } from "lucide-react";
-import type { Presence, RetrievedChunk, Task } from "@/lib/types";
+import type { Presence, Project, RetrievedChunk, Task } from "@/lib/types";
 import { statusMeta } from "@/lib/constants";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { clearPresence, setPresence, watchPresence } from "@/lib/data/firestore";
+import { clearPresence, moveTasksToProject, setPresence, watchPresence } from "@/lib/data/firestore";
 import { useTaskActions } from "@/lib/data/useTaskActions";
 import { useDeleteTask } from "@/lib/data/useDeleteTask";
+import { collectSubtreeIds } from "@/lib/data/tree";
+import { useToast } from "@/lib/ui/ToastContext";
 import { postJSON } from "@/lib/api";
 import { relativeTime } from "@/lib/date";
 import { cn, shortId, taskAssignees } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusControl } from "@/components/ui/StatusControl";
 import { Button } from "@/components/ui/Button";
+import { Dropdown } from "@/components/ui/Dropdown";
 import { AssigneePicker, AssigneeStack, DuePicker, PrioritySelect, RecurrencePicker, TagEditor } from "@/components/task/Pickers";
 import { QuickAdd } from "@/components/task/TaskRow";
 import { TimeTracker } from "@/components/task/TimeTracker";
@@ -107,12 +110,14 @@ export function TaskDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30 animate-fade-in md:hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/40 animate-fade-in md:hidden" onClick={onClose} />
+      {/* A phone gets a full-height sheet, not a 420px panel squeezed against
+          the edge. From md up it is the side drawer it always was. */}
       <aside
         data-overlay-open
-        className="absolute inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-pop animate-slide-in"
+        className="fixed inset-0 z-50 flex flex-col border-border bg-surface shadow-pop animate-slide-in md:absolute md:inset-y-0 md:left-auto md:right-0 md:w-full md:max-w-[420px] md:border-l"
       >
-        <header className="flex items-center justify-between border-b border-border px-4 py-3">
+        <header className="flex items-center justify-between border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <span className={meta.color}>●</span>
             {meta.label}
@@ -134,13 +139,14 @@ export function TaskDrawer({
           </div>
           <button
             onClick={onClose}
-            className="grid h-7 w-7 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text"
+            aria-label="Close"
+            className="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text md:h-7 md:w-7"
           >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
           {/* Where this task actually lives. Worth stating whenever the drawer
               was opened from a view that spans projects. */}
           {foreign && project && (
@@ -199,6 +205,9 @@ export function TaskDrawer({
             </Prop>
             <Prop label="Repeat">
               <RecurrencePicker value={live.recurrence} onChange={(r) => actions.setRecurrence(live.id, r)} />
+            </Prop>
+            <Prop label="Project">
+              <ProjectMover task={live} current={project} />
             </Prop>
             <Prop label="Estimate">
               <EstimatePicker
@@ -317,7 +326,7 @@ export function TaskDrawer({
           )}
         </div>
 
-        <footer className="flex items-center justify-between border-t border-border px-4 py-2.5">
+        <footer className="flex items-center justify-between border-t border-border px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] md:pb-2.5">
           <span className="mono text-2xs text-text-faint">
             updated {relativeTime(live.updatedAt)}
           </span>
@@ -331,6 +340,85 @@ export function TaskDrawer({
         </footer>
       </aside>
     </>
+  );
+}
+
+/**
+ * Move a task between projects. Nothing in the app offered this, so anything
+ * captured into the Inbox was stuck there permanently. The whole subtree moves
+ * and access is re-derived from the destination — see moveTasksToProject.
+ */
+function ProjectMover({ task, current }: { task: Task; current: Project | null }) {
+  const { allProjects, workspaces, allTasks } = useWorkspace();
+  const toast = useToast();
+
+  const options = allProjects
+    .filter((p) => p.id !== task.projectId)
+    .sort((a, b) => a.workspaceId.localeCompare(b.workspaceId) || a.name.localeCompare(b.name));
+
+  const move = async (dest: Project) => {
+    const ids = collectSubtreeIds(allTasks, task.id);
+    const kids = ids.length - 1;
+    const from = current;
+    const ok = await toast.report(moveTasksToProject(ids, dest), {
+      failure: "Could not move the task.",
+    });
+    if (ok === undefined) return;
+    toast.ok(
+      kids > 0
+        ? `Moved to ${dest.name} with ${kids} subtask${kids === 1 ? "" : "s"}.`
+        : `Moved to ${dest.name}.`,
+      from
+        ? {
+            label: "Undo",
+            run: () => toast.report(moveTasksToProject(ids, from), { failure: "Could not undo." }),
+          }
+        : undefined
+    );
+  };
+
+  return (
+    <Dropdown
+      width={240}
+      trigger={() => (
+        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-text transition-colors hover:bg-surface-2">
+          {current && (
+            <span
+              className="h-2 w-2 shrink-0 rounded-[3px]"
+              style={{ background: current.color }}
+            />
+          )}
+          <span className="truncate">
+            {current ? (current.isInbox ? "Inbox" : current.name) : "Unknown"}
+          </span>
+        </span>
+      )}
+    >
+      {(close) => (
+        <div className="max-h-[300px] overflow-y-auto p-1">
+          {options.length === 0 ? (
+            <div className="px-2 py-2 text-2xs text-text-faint">No other projects.</div>
+          ) : (
+            options.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  close();
+                  void move(p);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              >
+                <span className="h-2 w-2 shrink-0 rounded-[3px]" style={{ background: p.color }} />
+                <span className="truncate">{p.isInbox ? "Inbox" : p.name}</span>
+                <span className="ml-auto shrink-0 truncate text-2xs text-text-faint">
+                  {workspaces.find((w) => w.id === p.workspaceId)?.name}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </Dropdown>
   );
 }
 
@@ -368,9 +456,9 @@ function EstimatePicker({
 
 function Prop({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-20 shrink-0 text-xs text-text-muted">{label}</span>
-      <div className="flex min-h-[24px] flex-1 items-center">{children}</div>
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+      <span className="shrink-0 text-xs text-text-muted sm:w-20">{label}</span>
+      <div className="flex min-h-[28px] flex-1 flex-wrap items-center">{children}</div>
     </div>
   );
 }

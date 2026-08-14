@@ -25,15 +25,18 @@ function sortTasks(a: Task, b: Task): number {
 export function ListView({
   onOpenTask,
   tasks: tasksProp,
+  crossProject = false,
 }: {
   onOpenTask: (t: Task) => void;
-  /** Cross-project task set (My Tasks). Uses the built-in statuses and hides add rows. */
+  /** Task set to render. Defaults to the current project's tasks. */
   tasks?: Task[];
+  /** True when the set spans projects; uses the built-in statuses and hides
+   *  add rows. Separate from `tasks` so filtering keeps them. */
+  crossProject?: boolean;
 }) {
   const { user } = useAuth();
   const ctx = useWorkspace();
   const tasks = tasksProp ?? ctx.tasks;
-  const crossProject = tasksProp != null;
   const actions = useTaskActions();
   const statuses = useMemo(
     () => projectStatuses(crossProject ? null : ctx.currentProject),
@@ -82,7 +85,7 @@ export function ListView({
   }, [tasks, present, sortMineFirst, statuses.map((s) => s.id).join(",")]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4">
+    <div className="mx-auto max-w-4xl px-2 py-4 sm:px-4">
       {statuses.map((meta) => {
         const status = meta.id;
         const rows = groups[status] ?? [];

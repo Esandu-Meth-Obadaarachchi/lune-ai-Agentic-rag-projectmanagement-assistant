@@ -55,7 +55,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
-      <header className="flex flex-col gap-3 border-b border-border px-4 pb-2.5 pt-3.5">
+      <header className="flex flex-col gap-2.5 border-b border-border px-3 pb-2 pt-3 sm:px-4 sm:pb-2.5 sm:pt-3.5">
         <div className="flex items-center gap-3">
           <ListChecks className="h-4 w-4 shrink-0 text-accent" />
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-text">All my tasks</h1>
@@ -85,11 +85,11 @@ export default function MyTasksPage() {
 
       <div className={cn("min-h-0 flex-1", view === "board" ? "overflow-hidden" : "overflow-auto")}>
         {view === "list" ? (
-          <ListView tasks={myTasks} onOpenTask={setSelected} />
+          <ListView tasks={myTasks} crossProject onOpenTask={setSelected} />
         ) : view === "board" ? (
-          <KanbanBoard tasks={myTasks} onOpenTask={setSelected} />
+          <KanbanBoard tasks={myTasks} crossProject onOpenTask={setSelected} />
         ) : view === "tree" ? (
-          <TreeView tasks={myTasks} onOpenTask={setSelected} selectedId={selected?.id} />
+          <TreeView tasks={myTasks} crossProject onOpenTask={setSelected} selectedId={selected?.id} />
         ) : (
           <CalendarView tasks={myTasks} projects={projects} onOpenTask={setSelected} />
         )}

@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   pointerWithin,
   rectIntersection,
   closestCorners,
@@ -53,14 +54,17 @@ const boardCollision: CollisionDetection = (args) => {
 export function KanbanBoard({
   onOpenTask,
   tasks: tasksProp,
+  crossProject = false,
 }: {
   onOpenTask: (t: Task) => void;
-  /** Cross-project task set (My Tasks). Uses the built-in statuses and hides add UI. */
+  /** Task set to render. Defaults to the current project's tasks. */
   tasks?: Task[];
+  /** True when the set spans projects; uses the built-in statuses and hides
+   *  add UI. Separate from `tasks` so filtering keeps them. */
+  crossProject?: boolean;
 }) {
   const ctx = useWorkspace();
   const tasks = tasksProp ?? ctx.tasks;
-  const crossProject = tasksProp != null;
   const currentProject = crossProject ? null : ctx.currentProject;
   const actions = useTaskActions();
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
@@ -102,7 +106,12 @@ export function KanbanBoard({
     if (!dragging.current) setCols(derived);
   }, [derived]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Touch needs a short press before dragging, or a scroll gesture on a phone
+  // starts a drag instead of scrolling the board.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } })
+  );
 
   /** Column droppables are prefixed so they can never collide with a task id. */
   const colOf = (id: string, source: Columns = cols): string | null => {
@@ -194,7 +203,7 @@ export function KanbanBoard({
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="flex h-full gap-3 overflow-x-auto px-4 py-4">
+      <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 py-4 sm:snap-none sm:px-4">
         {statuses.map((meta) => (
           <Column
             key={meta.id}
@@ -209,7 +218,7 @@ export function KanbanBoard({
         {currentProject && (
           <button
             onClick={() => setAdding(true)}
-            className="mt-0.5 flex h-8 w-[200px] shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 text-2xs text-text-faint transition-colors hover:border-border-strong hover:text-text-muted"
+            className="mt-0.5 flex h-8 w-[60vw] shrink-0 snap-start items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 text-2xs text-text-faint transition-colors hover:border-border-strong hover:text-text-muted sm:w-[200px]"
           >
             <Plus className="h-3.5 w-3.5" /> Add status
           </button>
@@ -256,7 +265,7 @@ function Column({
   const [adding, setAdding] = useState(false);
 
   return (
-    <div ref={setNodeRef} className="flex w-[288px] shrink-0 flex-col">
+    <div ref={setNodeRef} className="flex w-[86vw] shrink-0 snap-start flex-col sm:w-[288px] sm:snap-align-none">
       <div className="group/col mb-2 flex items-center gap-2 px-1">
         {meta.custom ? (
           <span className="h-2 w-2 rounded-full" style={{ background: meta.hex }} />
@@ -377,6 +386,7 @@ function SortableCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
       style={{ transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       {...attributes}
       {...listeners}
+      className="touch-none"
     >
       <TaskCard task={task} onOpen={onOpen} />
     </div>

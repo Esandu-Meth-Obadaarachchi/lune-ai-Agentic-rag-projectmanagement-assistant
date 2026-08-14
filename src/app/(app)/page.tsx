@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
+import { EMPTY_FILTER, applyFilter, type TaskFilter } from "@/lib/data/filter";
 import type { Task } from "@/lib/types";
 import { ProjectHeader, type ViewTab } from "@/components/project/ProjectHeader";
 import { TreeView } from "@/components/views/TreeView";
@@ -23,10 +24,23 @@ import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 export default function ProjectViewPage() {
-  const { currentProject, tasks, allTasks, tasksLoading, loading } = useWorkspace();
+  const { currentProject, currentWorkspace, tasks, allTasks, tasksLoading, loading } = useWorkspace();
   const router = useRouter();
   const [tab, setTab] = useState<ViewTab>("tree");
   const [selected, setSelected] = useState<Task | null>(null);
+  const [filter, setFilter] = useState<TaskFilter>(EMPTY_FILTER);
+
+  // Filtering keeps ancestors of a match so the tree still resolves. Views that
+  // render their own data model (Docs, Team, Draw) are unaffected.
+  const shown = useMemo(() => applyFilter(tasks, filter), [tasks, filter]);
+
+  const members = useMemo(
+    () =>
+      (currentWorkspace?.members ?? []).filter(
+        (m) => !currentProject?.memberIds || currentProject.memberIds.includes(m.uid)
+      ),
+    [currentWorkspace, currentProject]
+  );
 
   // Remember the last tab.
   useEffect(() => {
@@ -82,7 +96,16 @@ export default function ProjectViewPage() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
-      <ProjectHeader project={currentProject} tasks={tasks} tab={tab} onTab={changeTab} />
+      <ProjectHeader
+        project={currentProject}
+        tasks={tasks}
+        tab={tab}
+        onTab={changeTab}
+        filter={filter}
+        onFilter={setFilter}
+        members={members}
+        shownCount={shown.length}
+      />
 
       <div className={cn("min-h-0 flex-1", tab === "map" || tab === "draw" ? "overflow-hidden" : "overflow-auto")}>
         {tasksLoading && tab !== "docs" && tab !== "team" ? (
@@ -92,12 +115,15 @@ export default function ProjectViewPage() {
             ))}
           </div>
         ) : tab === "tree" ? (
-          <TreeView onOpenTask={setSelected} selectedId={selected?.id} />
+          <TreeView tasks={shown} onOpenTask={setSelected} selectedId={selected?.id} />
         ) : tab === "board" ? (
-          <KanbanBoard onOpenTask={setSelected} />
+          <KanbanBoard tasks={shown} onOpenTask={setSelected} />
         ) : tab === "list" ? (
-          <ListView onOpenTask={setSelected} />
+          <ListView tasks={shown} onOpenTask={setSelected} />
         ) : tab === "calendar" ? (
+          // Deliberately not filtered: the calendar is workspace-wide by
+          // design, and narrowing it to the current project would change what
+          // the tab means.
           <CalendarView onOpenTask={setSelected} />
         ) : tab === "sprints" ? (
           <SprintView project={currentProject} onOpenTask={setSelected} />

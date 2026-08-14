@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, PanelLeftOpen } from "lucide-react";
+import { Menu, PanelLeftOpen, Search } from "lucide-react";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { Logo } from "@/components/ui/Logo";
 import { Sidebar } from "./Sidebar";
+import { CommandPalette, openCommandPalette } from "./CommandPalette";
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const { seeding, currentWorkspace } = useWorkspace();
@@ -32,7 +33,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-bg lg:flex-row">
       {/* Mobile top bar */}
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 lg:hidden">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 pt-[env(safe-area-inset-top)] lg:hidden" style={{ height: "calc(3rem + env(safe-area-inset-top))" }}>
         <button
           onClick={() => setNavOpen(true)}
           className="grid h-8 w-8 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text"
@@ -41,9 +42,17 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <Menu className="h-5 w-5" />
         </button>
         <Logo size={20} />
-        <span className="truncate text-[13px] font-medium text-text">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text">
           {currentWorkspace ? `${currentWorkspace.emoji} ${currentWorkspace.name}` : "Lune AI"}
         </span>
+        {/* No keyboard on a phone, so the palette needs a visible way in. */}
+        <button
+          onClick={openCommandPalette}
+          aria-label="Search"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text"
+        >
+          <Search className="h-4 w-4" />
+        </button>
       </header>
 
       {/* Backdrop for the mobile drawer */}
@@ -74,6 +83,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+
+      <CommandPalette />
 
       {seeding && (
         <div className="fixed inset-0 z-[200] grid place-items-center bg-bg/80 backdrop-blur-sm">

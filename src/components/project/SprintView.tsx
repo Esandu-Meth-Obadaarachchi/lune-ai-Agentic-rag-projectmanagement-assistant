@@ -57,7 +57,7 @@ export function SprintView({
   const avg = averageVelocity(bars);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-4">
+    <div className="mx-auto max-w-5xl px-3 py-4 sm:px-4">
       <div className="mb-4 flex items-center gap-2">
         <h2 className="text-[15px] font-semibold tracking-tight text-text">Sprints</h2>
         <span className="mono text-2xs text-text-faint">{sprints.length}</span>
@@ -215,7 +215,7 @@ function ActiveSprint({
         </div>
       </div>
 
-      <div className="grid gap-4 p-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0">
           <SectionTitle>Committed work</SectionTitle>
           {inSprint.length === 0 ? (

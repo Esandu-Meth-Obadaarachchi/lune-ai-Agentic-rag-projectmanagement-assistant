@@ -54,7 +54,7 @@ export function BacklogView({
   }, [user, project.id]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-4">
+    <div className="mx-auto max-w-5xl px-3 py-4 sm:px-4">
       <div className="mb-4 flex items-center gap-1">
         <Tab active={mode === "backlog"} onClick={() => setMode("backlog")} icon={Layers}>
           Backlog
@@ -230,7 +230,7 @@ function BacklogRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 px-3 transition-colors",
+        "flex items-center gap-2 px-2.5 transition-colors sm:gap-2.5 sm:px-3",
         picked ? "bg-accent/[0.06]" : "hover:bg-surface-2"
       )}
     >
@@ -243,7 +243,7 @@ function BacklogRow({
       />
       <StatusControl status={task.status} onChange={onStatus} />
       <PriorityDot priority={task.priority} />
-      <button onClick={onOpen} className="flex-1 truncate py-2.5 text-left text-[13.5px] text-text">
+      <button onClick={onOpen} className="flex-1 truncate py-3 text-left text-[13.5px] text-text sm:py-2.5">
         {task.title}
       </button>
 

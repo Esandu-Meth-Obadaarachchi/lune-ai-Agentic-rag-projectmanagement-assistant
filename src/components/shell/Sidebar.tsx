@@ -16,6 +16,7 @@ import {
   Moon,
   PanelLeftClose,
   Plus,
+  Search,
   ShieldAlert,
   Sparkles,
   Sun,
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/Button";
 import { Dropdown, MenuItem } from "@/components/ui/Dropdown";
 import { Field, Modal, inputClass } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
+import { openCommandPalette } from "./CommandPalette";
 import { InviteMailbox } from "./InviteMailbox";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -208,10 +210,20 @@ export function Sidebar({
         >
           <Sparkles className="h-4 w-4" />
           Ask the brain
+        </Link>
+
+        {/* Opens the command palette. The ⌘K cap used to sit on "Ask the
+            brain" and was bound to nothing at all. */}
+        <button
+          onClick={openCommandPalette}
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+        >
+          <Search className="h-4 w-4" />
+          Search
           <kbd className="mono ml-auto rounded border border-border bg-surface px-1.5 py-0.5 text-2xs text-text-faint">
             ⌘K
           </kbd>
-        </Link>
+        </button>
       </div>
 
       {/* Quick capture -> workspace Inbox (add a task without picking a project) */}

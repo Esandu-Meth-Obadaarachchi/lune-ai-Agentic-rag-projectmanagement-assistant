@@ -38,16 +38,22 @@ export function TreeView({
   onOpenTask,
   selectedId,
   tasks: tasksProp,
+  crossProject = false,
 }: {
   onOpenTask: (t: Task) => void;
   selectedId?: string;
-  /** Cross-project task set (My Tasks). When given, creation affordances are hidden. */
+  /** Task set to render. Defaults to the current project's tasks; pass a
+   *  filtered or cross-project set to override. */
   tasks?: Task[];
+  /** True when the set spans projects (All my tasks): creation and reordering
+   *  are hidden, because there is no single project to write into and `order`
+   *  is scoped per project. Kept separate from `tasks` so a filtered
+   *  single-project set does not lose its add affordances. */
+  crossProject?: boolean;
 }) {
   const { user } = useAuth();
   const ctx = useWorkspace();
   const tasks = tasksProp ?? ctx.tasks;
-  const crossProject = tasksProp != null;
   const actions = useTaskActions();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [addingUnder, setAddingUnder] = useState<string | null>(null);
@@ -218,7 +224,7 @@ export function TreeView({
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-4">
+    <div className="mx-auto max-w-4xl px-2 py-4 sm:px-4">
       {!crossProject && tasks.length > 0 && (
         <div className="mb-2 flex items-center justify-end gap-1 px-1">
           <button
@@ -292,7 +298,9 @@ export function TreeView({
       {!crossProject && (
         <div
           ref={composerRef}
-          className="sticky bottom-0 z-10 -mx-4 mt-1.5 border-t border-border bg-bg/95 px-4 py-1.5 backdrop-blur-sm"
+          // Negative margins must track the container's own padding, which is
+          // tighter on phones, or the bar overflows its scrollport.
+          className="sticky bottom-0 z-10 -mx-2 mt-1.5 border-t border-border bg-bg/95 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:-mx-4 sm:px-4 sm:pb-1.5"
         >
           <QuickAdd
             inputRef={addRef}

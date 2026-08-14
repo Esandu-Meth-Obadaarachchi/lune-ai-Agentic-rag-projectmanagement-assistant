@@ -425,6 +425,33 @@ export async function commitTaskMoves(moves: { id: string; order: number; parent
 }
 
 /**
+ * Move a task and its whole subtree into another project.
+ *
+ * The subtree has to move together — leaving children behind would orphan them
+ * into a project whose tree no longer contains their parent. `memberIds` is
+ * re-derived from the destination, since access follows the project: a task
+ * carrying its old project's list into a new one would be visible to the wrong
+ * people, or invisible to the right ones.
+ */
+export async function moveTasksToProject(ids: string[], destination: Project) {
+  if (!ids.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  ids.forEach((id) =>
+    batch.update(doc(database, "tasks", id), {
+      projectId: destination.id,
+      workspaceId: destination.workspaceId,
+      memberIds: destination.memberIds ?? [],
+      // Sprints are project-scoped, so a moved task cannot keep its old one.
+      sprintId: null,
+      updatedAt: now,
+    })
+  );
+  await batch.commit();
+}
+
+/**
  * Apply a batch of assignee changes in one write. The legacy single-assignee
  * fields are kept mirroring the first entry so anything still reading
  * `assigneeId` (print view, older data, the members board grouping) stays
