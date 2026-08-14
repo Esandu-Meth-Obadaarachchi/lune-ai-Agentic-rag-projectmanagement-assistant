@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import type { Task } from "@/lib/types";
@@ -20,7 +21,8 @@ import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 export default function ProjectViewPage() {
-  const { currentProject, tasks, tasksLoading, loading } = useWorkspace();
+  const { currentProject, tasks, allTasks, tasksLoading, loading } = useWorkspace();
+  const router = useRouter();
   const [tab, setTab] = useState<ViewTab>("tree");
   const [selected, setSelected] = useState<Task | null>(null);
 
@@ -35,16 +37,19 @@ export default function ProjectViewPage() {
   };
 
   // Deep-link support: /?task=<id> opens that task's drawer once it loads
-  // (used by the agent standup to jump to a task).
+  // (Today, the all-workspaces board and the agent standup all jump this way).
+  // Resolved against allTasks, not the current project's tasks: the caller may
+  // still be switching project, and allTasks is live regardless of which one is
+  // selected. Reading the param off window keeps this out of a Suspense
+  // boundary, which useSearchParams would demand at build time.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("task");
     if (!id) return;
-    const found = tasks.find((t) => t.id === id);
-    if (found) {
-      setSelected(found);
-      window.history.replaceState(null, "", "/");
-    }
-  }, [tasks]);
+    const found = allTasks.find((t) => t.id === id);
+    if (!found) return;
+    setSelected(found);
+    router.replace("/", { scroll: false });
+  }, [allTasks, router]);
 
   if (loading) {
     return (

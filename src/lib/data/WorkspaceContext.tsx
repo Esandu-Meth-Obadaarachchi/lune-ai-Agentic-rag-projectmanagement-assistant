@@ -114,9 +114,22 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, [currentWorkspaceId, user]);
 
+  // A cross-workspace jump target, held until the new workspace's projects load.
+  // Effect 4 consumes it. Never a state value: setting it must not itself
+  // re-trigger the reconcile, and it has to survive a render where `projects`
+  // still holds the previous workspace's list.
+  const pendingProjectRef = useRef<string | null>(null);
+
   // 4. Keep the selected project valid within the current workspace.
   useEffect(() => {
     setCurrentProjectId((cur) => {
+      // A pending cross-workspace target wins as soon as it is loadable.
+      const pending = pendingProjectRef.current;
+      if (pending) {
+        if (!projects.some((p) => p.id === pending)) return cur;
+        pendingProjectRef.current = null;
+        return pending;
+      }
       if (cur && projects.some((p) => p.id === cur)) return cur;
       const saved = typeof window !== "undefined" ? localStorage.getItem(LS_PROJ) : null;
       if (saved && projects.some((p) => p.id === saved)) return saved;
@@ -220,9 +233,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       },
       selectProject: setCurrentProjectId,
       openWorkspaceProject: (workspaceId, projectId) => {
-        // Stash the target project so effect 4 selects it once the new
-        // workspace's projects load (cross-workspace navigation).
         if (typeof window !== "undefined") localStorage.setItem(LS_PROJ, projectId);
+        // Same workspace => `projects` is already loaded and its identity will
+        // not change, so effect 4 would never re-run. Select directly. Blanking
+        // the id here instead left currentProject null until an unrelated
+        // snapshot happened to land, which is why opening a task from Today
+        // only worked some of the time.
+        if (workspaceId === currentWorkspaceId) {
+          setCurrentProjectId(projectId);
+          return;
+        }
+        // Different workspace: hand the target to effect 4, which selects it
+        // once the new workspace's projects arrive.
+        pendingProjectRef.current = projectId;
         setCurrentProjectId(null);
         setCurrentWorkspaceId(workspaceId);
       },
