@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -143,6 +143,41 @@ export function TreeView({
       return next;
     });
 
+  /* --------------------------- the add composer --------------------------- */
+
+  const addRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  /** Bring the composer and the rows just above it into view, so a task added
+   *  from the top of a long list is not created somewhere off screen. */
+  const reveal = () => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    composerRef.current?.scrollIntoView({
+      block: "end",
+      behavior: reduced ? "auto" : "smooth",
+    });
+  };
+
+  // `n` focuses the composer from anywhere in the tree. Ignored while typing,
+  // and while a modifier is held so browser and OS shortcuts still work.
+  useEffect(() => {
+    if (crossProject) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "n" && e.key !== "N") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.isContentEditable) return;
+      if (el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
+      // Not while a modal or the task drawer is up.
+      if (document.querySelector("[aria-modal], [data-overlay-open]")) return;
+      e.preventDefault();
+      reveal();
+      addRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [crossProject]);
+
   const activeNode = activeId ? visible.find((n) => n.id === activeId) : null;
 
   const rows = (
@@ -250,9 +285,24 @@ export function TreeView({
         </div>
       ) : null}
 
+      {/* Sticky composer. New tasks append to the end of the list, so the add
+          row used to sit at the very bottom and needed a full scroll to reach
+          on a long project. Pinned to the bottom of the scrollport it stays one
+          key away, and the row it creates lands directly above it. */}
       {!crossProject && (
-        <div className="mt-1.5 border-t border-border/60 pt-1.5">
-          <QuickAdd placeholder="Add task" onAdd={(title) => actions.add(title)} />
+        <div
+          ref={composerRef}
+          className="sticky bottom-0 z-10 -mx-4 mt-1.5 border-t border-border bg-bg/95 px-4 py-1.5 backdrop-blur-sm"
+        >
+          <QuickAdd
+            inputRef={addRef}
+            hint="N"
+            placeholder="Add task"
+            onAdd={(title) => {
+              actions.add(title);
+              reveal();
+            }}
+          />
         </div>
       )}
     </div>

@@ -90,7 +90,10 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 animate-fade-in md:hidden" onClick={onClose} />
-      <aside className="absolute inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-pop animate-slide-in">
+      <aside
+        data-overlay-open
+        className="absolute inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-pop animate-slide-in"
+      >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <span className={meta.color}>●</span>

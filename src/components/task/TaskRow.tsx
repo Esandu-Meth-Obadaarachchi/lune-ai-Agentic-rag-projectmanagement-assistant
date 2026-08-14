@@ -212,12 +212,18 @@ export function QuickAdd({
   onAdd,
   autoFocus,
   onCancel,
+  inputRef,
+  hint,
 }: {
   depth?: number;
   placeholder?: string;
   onAdd: (title: string) => void;
   autoFocus?: boolean;
   onCancel?: () => void;
+  /** Lets a parent focus this composer, e.g. from a keyboard shortcut. */
+  inputRef?: React.RefObject<HTMLInputElement>;
+  /** Key cap shown at rest, e.g. "N". Only pass one that is actually bound. */
+  hint?: string;
 }) {
   const [value, setValue] = useState("");
   // The live value is mirrored in a ref so `onBlur` never reads a stale render
@@ -245,6 +251,7 @@ export function QuickAdd({
       </span>
       <span className="grid h-4 w-4 place-items-center rounded-full border-[1.5px] border-dashed border-border-strong" />
       <input
+        ref={inputRef}
         autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
@@ -257,6 +264,7 @@ export function QuickAdd({
           if (e.key === "Escape") {
             update("");
             onCancel?.();
+            (e.target as HTMLInputElement).blur();
           }
         }}
         onBlur={() => {
@@ -265,6 +273,11 @@ export function QuickAdd({
         }}
         className="flex-1 bg-transparent py-1.5 text-[13.5px] text-text outline-none placeholder:text-text-faint"
       />
+      {hint && !value && (
+        <kbd className="mono mr-1 hidden shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-faint sm:block">
+          {hint}
+        </kbd>
+      )}
     </div>
   );
 }
