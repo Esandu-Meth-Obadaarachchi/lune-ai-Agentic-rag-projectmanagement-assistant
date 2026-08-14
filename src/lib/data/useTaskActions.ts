@@ -160,6 +160,9 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
         syncTaskToCalendar(id);
       },
       setTags: (id: string, tags: string[]) => updateTask(id, { tags }),
+      /** Blocked-by links. `dependencies` has existed on the type since the
+       *  first release with nothing reading or writing it. */
+      setDependencies: (id: string, dependencies: string[]) => updateTask(id, { dependencies }),
       setEstimate: async (id: string, estimate: number | null) => {
         const prev = lookup(id)?.estimate ?? null;
         await updateTask(id, { estimate });

@@ -411,6 +411,53 @@ export async function restoreTasks(tasks: Task[]) {
   await batch.commit();
 }
 
+/**
+ * Apply one patch to many tasks in a single batch. Powers the bulk bar.
+ * Returns the previous values of the touched fields so the caller can undo,
+ * which matters more here than anywhere else — a bulk edit that goes wrong goes
+ * wrong across dozens of rows at once.
+ */
+export async function bulkUpdateTasks(
+  tasks: Task[],
+  patch: Partial<Task>
+): Promise<{ id: string; before: Partial<Task> }[]> {
+  if (!tasks.length) return [];
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  const keys = Object.keys(patch) as (keyof Task)[];
+
+  const undo = tasks.map((t) => {
+    const before: Partial<Task> = {};
+    keys.forEach((k) => {
+      // undefined is not storable; a cleared field reads back as null.
+      (before as Record<string, unknown>)[k] = t[k] ?? null;
+    });
+    return { id: t.id, before };
+  });
+
+  tasks.forEach((t) =>
+    batch.update(doc(database, "tasks", t.id), {
+      ...withCompletion(patch),
+      updatedAt: now,
+    })
+  );
+  await batch.commit();
+  return undo;
+}
+
+/** Restore per-task field values captured by bulkUpdateTasks. */
+export async function bulkRestore(entries: { id: string; before: Partial<Task> }[]) {
+  if (!entries.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  entries.forEach(({ id, before }) =>
+    batch.update(doc(database, "tasks", id), { ...before, updatedAt: now })
+  );
+  await batch.commit();
+}
+
 /** Persist a re-ordered / re-parented set of tasks after a drag. */
 export async function commitTaskMoves(moves: { id: string; order: number; parentId?: string | null; status?: Task["status"] }[]) {
   const batch = writeBatch(requireDb());

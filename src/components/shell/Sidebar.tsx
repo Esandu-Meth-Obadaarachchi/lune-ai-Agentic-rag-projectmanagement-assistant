@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   BookOpen,
   CalendarCheck2,
   FileText,
@@ -14,7 +16,9 @@ import {
   ListChecks,
   LogOut,
   Moon,
+  MoreHorizontal,
   PanelLeftClose,
+  Pencil,
   Plus,
   Search,
   ShieldAlert,
@@ -25,7 +29,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { isAdminEmail } from "@/lib/admin";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { createPage, createProject, createTask, deleteProjectDeep } from "@/lib/data/firestore";
+import { createPage, createProject, createTask, deleteProjectDeep, updateProject } from "@/lib/data/firestore";
 import type { Project } from "@/lib/types";
 import { useTheme } from "@/lib/theme/ThemeContext";
 import { Avatar } from "@/components/ui/Avatar";
@@ -63,7 +67,13 @@ export function Sidebar({
   const [projToDelete, setProjToDelete] = useState<Project | null>(null);
   const [capture, setCapture] = useState("");
 
-  const realProjects = projects.filter((p) => !p.isInbox);
+  const realProjects = projects.filter((p) => !p.isInbox && !p.archived);
+  // `archived` has been on Project since the first release with nothing
+  // reading it, so a finished project was either permanent clutter or deleted.
+  const archivedProjects = projects.filter((p) => !p.isInbox && p.archived);
+  const [showArchived, setShowArchived] = useState(false);
+  const [renaming, setRenaming] = useState<Project | null>(null);
+  const [renameTo, setRenameTo] = useState("");
   const inboxOpenCount = inboxProject
     ? workspaceTasks.filter((t) => t.projectId === inboxProject.id && t.status !== "done").length
     : 0;
@@ -295,26 +305,95 @@ export function Sidebar({
                   <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: p.color }} />
                   <span className="flex-1 truncate">{p.name}</span>
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setProjToDelete(p);
-                  }}
-                  title="Delete project"
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                <Dropdown
+                  align="right"
+                  width={176}
+                  trigger={() => (
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint opacity-100 transition-opacity hover:bg-surface-3 hover:text-text lg:opacity-0 lg:group-hover:opacity-100">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                  {(close) => (
+                    <div>
+                      <MenuItem
+                        icon={<Pencil className="h-4 w-4" />}
+                        onClick={() => {
+                          setRenaming(p);
+                          setRenameTo(p.name);
+                          close();
+                        }}
+                      >
+                        Rename
+                      </MenuItem>
+                      <MenuItem
+                        icon={<Archive className="h-4 w-4" />}
+                        onClick={() => {
+                          void updateProject(p.id, { archived: true });
+                          close();
+                        }}
+                      >
+                        Archive
+                      </MenuItem>
+                      <div className="my-1 h-px bg-border" />
+                      <MenuItem
+                        danger
+                        icon={<Trash2 className="h-4 w-4" />}
+                        onClick={() => {
+                          setProjToDelete(p);
+                          close();
+                        }}
+                      >
+                        Delete
+                      </MenuItem>
+                    </div>
+                  )}
+                </Dropdown>
               </div>
             );
           })}
-          {realProjects.length === 0 && (
+          {realProjects.length === 0 && archivedProjects.length === 0 && (
             <button
               onClick={() => setNewProj(true)}
               className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-2 py-2 text-[13px] text-text-faint hover:border-border-strong hover:text-text-muted"
             >
               <Plus className="h-3.5 w-3.5" /> Create your first project
             </button>
+          )}
+
+          {archivedProjects.length > 0 && (
+            <div className="pt-1">
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-2xs text-text-faint transition-colors hover:text-text-muted"
+              >
+                <Archive className="h-3 w-3" />
+                Archived
+                <span className="mono">{archivedProjects.length}</span>
+              </button>
+              {showArchived &&
+                archivedProjects.map((p) => (
+                  <div key={p.id} className="group flex items-center rounded-md pr-1 text-text-faint">
+                    <button
+                      onClick={() => openProject(p.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left text-[13px]"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-[3px] opacity-50"
+                        style={{ background: p.color }}
+                      />
+                      <span className="flex-1 truncate">{p.name}</span>
+                    </button>
+                    <button
+                      onClick={() => void updateProject(p.id, { archived: false })}
+                      title="Restore project"
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint hover:bg-surface-3 hover:text-text"
+                    >
+                      <ArchiveRestore className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+            </div>
           )}
         </nav>
       </div>
@@ -451,6 +530,38 @@ export function Sidebar({
           </Button>
           <Button variant="primary" onClick={createProj} disabled={!pName.trim() || busy}>
             {busy ? "Creating…" : "Create project"}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!renaming} onClose={() => setRenaming(null)} title="Rename project">
+        <Field label="Name">
+          <input
+            className={inputClass}
+            autoFocus
+            value={renameTo}
+            onChange={(e) => setRenameTo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || !renameTo.trim() || !renaming) return;
+              void updateProject(renaming.id, { name: renameTo.trim() });
+              setRenaming(null);
+            }}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setRenaming(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!renameTo.trim()}
+            onClick={() => {
+              if (!renaming) return;
+              void updateProject(renaming.id, { name: renameTo.trim() });
+              setRenaming(null);
+            }}
+          >
+            Rename
           </Button>
         </div>
       </Modal>

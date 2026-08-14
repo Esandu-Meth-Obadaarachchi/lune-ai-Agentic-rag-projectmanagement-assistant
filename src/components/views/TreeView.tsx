@@ -30,6 +30,10 @@ import {
 } from "@/lib/data/tree";
 import type { Task, TaskNode } from "@/lib/types";
 import { QuickAdd, TaskRow } from "@/components/task/TaskRow";
+import { BulkBar } from "@/components/task/BulkBar";
+import { useSelection } from "@/lib/data/useSelection";
+import { useTaskKeys } from "@/lib/data/useTaskKeys";
+import { useDeleteTask } from "@/lib/data/useDeleteTask";
 import { cn } from "@/lib/utils";
 
 const SORT_KEY = "sb-tree-sort";
@@ -149,6 +153,29 @@ export function TreeView({
       return next;
     });
 
+  /* ------------------------- selection + keyboard ------------------------- */
+
+  const orderedIds = useMemo(() => visible.map((n) => n.id), [visible]);
+  const selection = useSelection(orderedIds);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const confirmDelete = useDeleteTask(actions);
+
+  useTaskKeys({
+    rows: visible,
+    selection,
+    cursor,
+    setCursor,
+    onOpen: onOpenTask,
+    onToggleDone: (t) => void actions.toggleDone(t),
+    onDelete: (t) => void confirmDelete(t.id, t.title),
+    onNew: () => {
+      reveal();
+      addRef.current?.focus();
+    },
+    // Dragging owns the pointer and the keyboard would fight it.
+    enabled: !activeId,
+  });
+
   /* --------------------------- the add composer --------------------------- */
 
   const addRef = useRef<HTMLInputElement>(null);
@@ -164,26 +191,6 @@ export function TreeView({
     });
   };
 
-  // `n` focuses the composer from anywhere in the tree. Ignored while typing,
-  // and while a modifier is held so browser and OS shortcuts still work.
-  useEffect(() => {
-    if (crossProject) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "n" && e.key !== "N") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const el = e.target as HTMLElement | null;
-      if (el?.isContentEditable) return;
-      if (el && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
-      // Not while a modal or the task drawer is up.
-      if (document.querySelector("[aria-modal], [data-overlay-open]")) return;
-      e.preventDefault();
-      reveal();
-      addRef.current?.focus();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [crossProject]);
-
   const activeNode = activeId ? visible.find((n) => n.id === activeId) : null;
 
   const rows = (
@@ -195,6 +202,12 @@ export function TreeView({
             actions={actions}
             collapsed={collapsed.has(node.id)}
             selected={node.id === selectedId}
+            picked={selection.isSelected(node.id)}
+            cursored={node.id === cursor}
+            onPick={(e) => {
+              setCursor(node.id);
+              selection.handleClick(node.id, e);
+            }}
             draggable={reorderable}
             dragging={node.id === activeId}
             dropDepth={node.id === activeId ? projection?.depth : undefined}
@@ -295,6 +308,8 @@ export function TreeView({
           row used to sit at the very bottom and needed a full scroll to reach
           on a long project. Pinned to the bottom of the scrollport it stays one
           key away, and the row it creates lands directly above it. */}
+      <BulkBar selection={selection} tasks={tasks} />
+
       {!crossProject && (
         <div
           ref={composerRef}

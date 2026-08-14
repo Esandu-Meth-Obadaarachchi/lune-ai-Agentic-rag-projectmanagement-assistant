@@ -22,6 +22,7 @@ import { AssigneePicker, AssigneeStack, DuePicker, PrioritySelect, RecurrencePic
 import { QuickAdd } from "@/components/task/TaskRow";
 import { TimeTracker } from "@/components/task/TimeTracker";
 import { TaskTimeline } from "@/components/task/TaskTimeline";
+import { Dependencies } from "@/components/task/Dependencies";
 
 export function TaskDrawer({
   task,
@@ -275,6 +276,15 @@ export function TaskDrawer({
               ))}
             </div>
             <QuickAdd placeholder="Add subtask" onAdd={(t) => actions.addSubtask(live.id, t)} />
+          </div>
+
+          {/* dependencies */}
+          <div className="mt-5">
+            <Dependencies
+              task={live}
+              onChange={(ids) => actions.setDependencies(live.id, ids)}
+              onOpenTask={onOpenTask}
+            />
           </div>
 
           {/* comments + system events */}

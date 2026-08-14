@@ -28,6 +28,9 @@ export function TaskRow({
   draggable = false,
   dragging = false,
   dropDepth,
+  picked = false,
+  cursored = false,
+  onPick,
 }: {
   node: TaskNode;
   actions: TaskActions;
@@ -43,6 +46,13 @@ export function TaskRow({
   dragging?: boolean;
   /** Live projected depth while dragging, so the indent previews where it lands. */
   dropDepth?: number;
+  /** In the current multi-selection. */
+  picked?: boolean;
+  /** The keyboard cursor is on this row. Distinct from `picked`: moving the
+   *  cursor does not select, which is what makes shift-extend work. */
+  cursored?: boolean;
+  /** Row click with modifiers, for multi-select. */
+  onPick?: (e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => void;
 }) {
   const { tasks } = useWorkspace();
   const confirmDelete = useDeleteTask(actions);
@@ -70,6 +80,7 @@ export function TaskRow({
   return (
     <div
       ref={draggable ? sortable.setNodeRef : undefined}
+      data-task-row={node.id}
       style={{
         paddingLeft: 8 + depth * TREE_INDENT,
         // The dragged row itself stays put and only previews its landing
@@ -81,9 +92,40 @@ export function TaskRow({
       className={cn(
         "group flex items-center gap-1.5 rounded-md pr-2 transition-colors",
         selected ? "bg-accent/[0.07] ring-1 ring-inset ring-accent/25" : "hover:bg-surface-2",
+        picked && "bg-accent/[0.09]",
+        cursored && !selected && "ring-1 ring-inset ring-border-strong",
         dragging && "bg-accent/[0.06] opacity-60 ring-1 ring-inset ring-accent/30"
       )}
     >
+      {/* Selection checkbox. Hidden until hover or selection so the row stays
+          calm, but always present on touch where hover does not exist. */}
+      {onPick && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPick({ shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey });
+          }}
+          aria-label={picked ? `Deselect ${node.title}` : `Select ${node.title}`}
+          aria-pressed={picked}
+          className={cn(
+            "grid h-5 w-5 shrink-0 place-items-center rounded transition-opacity",
+            picked ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-3.5 w-3.5 place-items-center rounded-[3px] border transition-colors",
+              picked ? "border-accent bg-accent text-accent-fg" : "border-border-strong"
+            )}
+          >
+            {picked && (
+              <svg viewBox="0 0 10 8" className="h-2 w-2 fill-none stroke-current stroke-[2]">
+                <path d="M1 4l2.5 2.5L9 1" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+        </button>
+      )}
       {/* drag grip */}
       {draggable && (
         <button
