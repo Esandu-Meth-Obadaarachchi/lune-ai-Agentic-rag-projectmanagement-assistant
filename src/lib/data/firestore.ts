@@ -394,6 +394,20 @@ export async function deleteTaskTree(ids: string[]) {
   await batch.commit();
 }
 
+/**
+ * Put deleted tasks back, ids and all. Undo for a delete, without the
+ * soft-delete plumbing (a `deletedAt` field would need every watcher, rule and
+ * query in the app to learn about it). Writing back to the same document ids
+ * keeps parentId links inside a restored subtree intact.
+ */
+export async function restoreTasks(tasks: Task[]) {
+  if (!tasks.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  tasks.forEach(({ id, ...data }) => batch.set(doc(database, "tasks", id), data));
+  await batch.commit();
+}
+
 /** Persist a re-ordered / re-parented set of tasks after a drag. */
 export async function commitTaskMoves(moves: { id: string; order: number; parentId?: string | null; status?: Task["status"] }[]) {
   const batch = writeBatch(requireDb());

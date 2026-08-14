@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, KanbanSquare, ListChecks, ListTree, Rows3 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { watchAllProjects } from "@/lib/data/firestore";
-import type { Project, Task } from "@/lib/types";
+import type { Task } from "@/lib/types";
 import { taskAssignees } from "@/lib/utils";
 import { TreeView } from "@/components/views/TreeView";
 import { ListView } from "@/components/views/ListView";
@@ -31,8 +30,7 @@ const TABS: { id: MineView; label: string; icon: typeof Rows3 }[] = [
  */
 export default function MyTasksPage() {
   const { user } = useAuth();
-  const { allTasks } = useWorkspace();
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { allTasks, allProjects: projects } = useWorkspace();
   const [view, setView] = useState<MineView>("list");
   const [selected, setSelected] = useState<Task | null>(null);
 
@@ -44,12 +42,6 @@ export default function MyTasksPage() {
     setView(v);
     localStorage.setItem("sb-mine-view", v);
   };
-
-  // Projects across all workspaces — used to colour/name tasks in the calendar.
-  useEffect(() => {
-    if (!user) return;
-    return watchAllProjects(user.uid, setProjects);
-  }, [user]);
 
   const myTasks = useMemo(() => {
     if (!user) return [];
@@ -103,7 +95,7 @@ export default function MyTasksPage() {
         )}
       </div>
 
-      {selected && <TaskDrawer task={selected} onClose={() => setSelected(null)} />}
+      {selected && <TaskDrawer task={selected} onClose={() => setSelected(null)} onOpenTask={setSelected} />}
     </div>
   );
 }

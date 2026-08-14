@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { CalendarCheck2, ChevronLeft, ChevronRight, Download, NotebookPen } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { saveDayPlan, watchAllProjects, watchDayPlan } from "@/lib/data/firestore";
+import { saveDayPlan, watchDayPlan } from "@/lib/data/firestore";
 import { addDays, format } from "date-fns";
 import { dueLabel, greeting, toISODate, todayISO } from "@/lib/date";
-import type { Project, Task, Workspace } from "@/lib/types";
+import type { Task, Workspace } from "@/lib/types";
 import { DueDateChip } from "@/components/ui/DueDateChip";
 import { AssigneeStack } from "@/components/task/Pickers";
 import { PriorityDot } from "@/components/ui/PriorityIndicator";
@@ -19,7 +19,7 @@ import { cn, taskAssignees } from "@/lib/utils";
 
 export default function TodayPage() {
   const { user } = useAuth();
-  const { allTasks, workspaces, openWorkspaceProject } = useWorkspace();
+  const { allTasks, allProjects: projects, workspaces, openWorkspaceProject } = useWorkspace();
   const router = useRouter();
   const today = todayISO();
 
@@ -29,12 +29,6 @@ export default function TodayPage() {
   const isToday = date === today;
   const shiftDate = (days: number) => setDate((d) => toISODate(addDays(new Date(d), days)));
 
-  // Project names across every workspace, so each task can show its project.
-  const [projects, setProjects] = useState<Project[]>([]);
-  useEffect(() => {
-    if (!user) return;
-    return watchAllProjects(user.uid, setProjects);
-  }, [user]);
   const projName = useMemo(() => {
     const m = new Map<string, string>();
     projects.forEach((p) => m.set(p.id, p.isInbox ? "Inbox" : p.name));

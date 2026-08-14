@@ -8,22 +8,40 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { clearPresence, setPresence, watchPresence } from "@/lib/data/firestore";
 import { useTaskActions } from "@/lib/data/useTaskActions";
+import { useDeleteTask } from "@/lib/data/useDeleteTask";
 import { postJSON } from "@/lib/api";
 import { relativeTime } from "@/lib/date";
-import { shortId, taskAssignees } from "@/lib/utils";
+import { cn, shortId, taskAssignees } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusControl } from "@/components/ui/StatusControl";
 import { Button } from "@/components/ui/Button";
-import { AssigneePicker, DuePicker, PrioritySelect, RecurrencePicker, TagEditor } from "@/components/task/Pickers";
+import { AssigneePicker, AssigneeStack, DuePicker, PrioritySelect, RecurrencePicker, TagEditor } from "@/components/task/Pickers";
 import { QuickAdd } from "@/components/task/TaskRow";
 import { TimeTracker } from "@/components/task/TimeTracker";
 
-export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
-  const { tasks, currentProject, currentWorkspace } = useWorkspace();
+export function TaskDrawer({
+  task,
+  onClose,
+  onOpenTask,
+}: {
+  task: Task | null;
+  onClose: () => void;
+  /** Lets the breadcrumb and the subtask rows navigate within the hierarchy. */
+  onOpenTask?: (t: Task) => void;
+}) {
+  const { allTasks, allProjects, currentProject, currentWorkspace } = useWorkspace();
   const { user } = useAuth();
-  const actions = useTaskActions();
+  // Resolved against every visible task, not the current project's slice: the
+  // drawer is opened from Today and All my tasks too, where the task often
+  // belongs to a different project. Reading the current slice meant `live` fell
+  // back to a stale prop, the subtask list rendered empty, and adding a subtask
+  // wrote it into whichever project happened to be selected.
+  const live = allTasks.find((t) => t.id === task?.id) ?? task;
+  const actions = useTaskActions({ projectId: live?.projectId });
+  const confirmDelete = useDeleteTask(actions);
   const [viewers, setViewers] = useState<Presence[]>([]);
-  const live = tasks.find((t) => t.id === task?.id) ?? task;
+  const project = allProjects.find((p) => p.id === live?.projectId) ?? currentProject;
+  const foreign = !!live && live.projectId !== currentProject?.id;
   const [title, setTitle] = useState(live?.title ?? "");
   const [notes, setNotes] = useState(live?.notes ?? "");
   const [related, setRelated] = useState<RetrievedChunk[] | null>(null);
@@ -77,14 +95,14 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   if (!live) return null;
   const others = viewers.filter((v) => v.uid !== user?.uid);
   // Completed subtasks sink to the bottom, matching the tree view.
-  const subtasks = tasks
+  const subtasks = allTasks
     .filter((t) => t.parentId === live.id)
     .sort((a, b) => {
       const ad = a.status === "done" ? 1 : 0;
       const bd = b.status === "done" ? 1 : 0;
       return ad - bd || a.order - b.order;
     });
-  const parent = live.parentId ? tasks.find((t) => t.id === live.parentId) : null;
+  const parent = live.parentId ? allTasks.find((t) => t.id === live.parentId) : null;
   const meta = statusMeta(live.status);
 
   return (
@@ -123,10 +141,23 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          {/* Where this task actually lives. Worth stating whenever the drawer
+              was opened from a view that spans projects. */}
+          {foreign && project && (
+            <div className="mb-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-1 text-2xs text-text-muted">
+              <span
+                className="h-2 w-2 shrink-0 rounded-[3px]"
+                style={{ background: project.color }}
+              />
+              <span className="truncate">{project.isInbox ? "Inbox" : project.name}</span>
+            </div>
+          )}
           {parent && (
             <button
-              className="mb-2 truncate text-2xs text-text-faint hover:text-text-muted"
-              title={parent.title}
+              onClick={() => onOpenTask?.(parent)}
+              disabled={!onOpenTask}
+              className="mb-2 block max-w-full truncate text-left text-2xs text-text-faint transition-colors hover:text-text-muted disabled:cursor-default disabled:hover:text-text-faint"
+              title={onOpenTask ? `Open ${parent.title}` : parent.title}
             >
               ↳ subtask of {parent.title}
             </button>
@@ -209,15 +240,27 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             </div>
             <div className="space-y-px">
               {subtasks.map((s) => (
-                <div key={s.id} className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-surface-2">
+                <div key={s.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-surface-2">
                   <StatusControl status={s.status} onChange={(st) => actions.setStatus(s.id, st)} size={14} />
-                  <span
-                    className={
-                      s.status === "done" ? "text-[13px] text-text-faint line-through" : "text-[13px] text-text"
-                    }
+                  <button
+                    onClick={() => onOpenTask?.(s)}
+                    disabled={!onOpenTask}
+                    className={cn(
+                      "flex-1 truncate text-left text-[13px] disabled:cursor-default",
+                      s.status === "done" ? "text-text-faint line-through" : "text-text"
+                    )}
+                    title={onOpenTask ? `Open ${s.title}` : s.title}
                   >
                     {s.title}
-                  </span>
+                  </button>
+                  {s.estimate != null && (
+                    <span className="mono shrink-0 text-2xs text-text-faint">{s.estimate}p</span>
+                  )}
+                  {taskAssignees(s).length > 0 && (
+                    <span className="shrink-0">
+                      <AssigneeStack assignees={taskAssignees(s)} size={16} max={2} />
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -281,10 +324,7 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
           <Button
             variant="danger"
             size="sm"
-            onClick={() => {
-              actions.remove(live.id);
-              onClose();
-            }}
+            onClick={() => void confirmDelete(live.id, live.title, onClose)}
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>

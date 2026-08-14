@@ -67,14 +67,19 @@ export function ListView({
     return m;
   }, [tasks]);
 
+  // Same orphan promotion as the board: across projects a subtask assigned to
+  // you must still appear even when its parent is not in the set.
+  const present = useMemo(() => new Set(tasks.map((t) => t.id)), [tasks]);
   const groups = useMemo(() => {
     const g: Record<string, Task[]> = {};
     statuses.forEach((s) => (g[s.id] = []));
-    tasks.filter((t) => !t.parentId).forEach((t) => (g[t.status] ?? g.todo).push(t));
+    tasks
+      .filter((t) => !t.parentId || !present.has(t.parentId))
+      .forEach((t) => (g[t.status] ?? g.todo).push(t));
     Object.values(g).forEach((arr) => arr.sort(sortMineFirst));
     return g;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, sortMineFirst, statuses.map((s) => s.id).join(",")]);
+  }, [tasks, present, sortMineFirst, statuses.map((s) => s.id).join(",")]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4">

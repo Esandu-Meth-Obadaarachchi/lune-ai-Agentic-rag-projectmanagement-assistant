@@ -116,7 +116,7 @@ export default function ProjectViewPage() {
         )}
       </div>
 
-      {selected && <TaskDrawer task={selected} onClose={() => setSelected(null)} />}
+      {selected && <TaskDrawer task={selected} onClose={() => setSelected(null)} onOpenTask={setSelected} />}
     </div>
   );
 }

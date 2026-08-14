@@ -7,6 +7,7 @@ import { ChevronRight, CornerDownRight, GripVertical, MoreHorizontal, Trash2 } f
 import type { TaskNode } from "@/lib/types";
 import type { TaskActions } from "@/lib/data/useTaskActions";
 import { TREE_INDENT, childProgress } from "@/lib/data/tree";
+import { useDeleteTask } from "@/lib/data/useDeleteTask";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { StatusControl } from "@/components/ui/StatusControl";
 import { DueDateChip } from "@/components/ui/DueDateChip";
@@ -44,6 +45,7 @@ export function TaskRow({
   dropDepth?: number;
 }) {
   const { tasks } = useWorkspace();
+  const confirmDelete = useDeleteTask(actions);
   const hasChildren = node.children.length > 0;
   const { done, total } = childProgress(tasks, node.id);
   const [title, setTitle] = useState(node.title);
@@ -184,8 +186,8 @@ export function TaskRow({
                   danger
                   icon={<Trash2 className="h-4 w-4" />}
                   onClick={() => {
-                    actions.remove(node.id);
                     close();
+                    void confirmDelete(node.id, node.title);
                   }}
                 >
                   Delete{total > 0 ? ` + ${total} subtask${total === 1 ? "" : "s"}` : ""}

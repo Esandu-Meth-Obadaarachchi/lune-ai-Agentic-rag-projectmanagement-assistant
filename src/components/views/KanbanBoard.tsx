@@ -75,11 +75,16 @@ export function KanbanBoard({
   // Board shows top-level tasks grouped by status. A task whose status no longer
   // exists (e.g. a just-deleted custom column) falls back into To Do so it is
   // never lost off-board.
+  // A subtask whose parent is not in the set is shown as a root. Inside a
+  // project the parent is always present, so this is a no-op there; across
+  // projects (All my tasks) it is what stops a subtask assigned to you from
+  // vanishing because its parent belongs to someone else.
+  const present = useMemo(() => new Set(tasks.map((t) => t.id)), [tasks]);
   const derived = useMemo<Columns>(() => {
     const cols: Columns = {};
     statusIds.forEach((id) => (cols[id] = []));
     tasks
-      .filter((t) => !t.parentId)
+      .filter((t) => !t.parentId || !present.has(t.parentId))
       .sort((a, b) => a.order - b.order)
       .forEach((t) => {
         const key = cols[t.status] ? t.status : "todo";
@@ -87,7 +92,7 @@ export function KanbanBoard({
       });
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, statusKey]);
+  }, [tasks, statusKey, present]);
 
   const [cols, setCols] = useState<Columns>(derived);
   const [activeId, setActiveId] = useState<string | null>(null);
