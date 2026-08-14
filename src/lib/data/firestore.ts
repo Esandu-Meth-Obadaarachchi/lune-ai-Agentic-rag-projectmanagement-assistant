@@ -19,6 +19,7 @@ import { db } from "@/lib/firebase/client";
 import { PROJECT_COLORS, slugStatus } from "@/lib/constants";
 import type {
   AgentCard,
+  Assignee,
   Chat,
   ChatMessage,
   DayPlan,
@@ -405,6 +406,30 @@ export async function commitTaskMoves(moves: { id: string; order: number; parent
       patch.completedAt = m.status === "done" ? now : null;
     }
     batch.update(doc(requireDb(), "tasks", m.id), patch);
+  });
+  await batch.commit();
+}
+
+/**
+ * Apply a batch of assignee changes in one write. The legacy single-assignee
+ * fields are kept mirroring the first entry so anything still reading
+ * `assigneeId` (print view, older data, the members board grouping) stays
+ * correct. Used by the members board for drag, and by its undo.
+ */
+export async function commitAssignments(changes: { id: string; after: Assignee[] }[]) {
+  if (!changes.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  changes.forEach(({ id, after }) => {
+    const first = after[0] ?? null;
+    batch.update(doc(database, "tasks", id), {
+      assignees: after,
+      assigneeId: first?.id ?? null,
+      assigneeName: first?.name ?? null,
+      assigneeAvatar: first?.avatar ?? null,
+      updatedAt: now,
+    });
   });
   await batch.commit();
 }
