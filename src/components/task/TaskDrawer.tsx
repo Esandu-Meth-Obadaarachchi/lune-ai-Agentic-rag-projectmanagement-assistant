@@ -90,7 +90,10 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 animate-fade-in md:hidden" onClick={onClose} />
-      <aside className="absolute inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-pop animate-slide-in">
+      <aside
+        data-overlay-open
+        className="absolute inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-pop animate-slide-in"
+      >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <span className={meta.color}>●</span>
@@ -165,6 +168,12 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
             </Prop>
             <Prop label="Repeat">
               <RecurrencePicker value={live.recurrence} onChange={(r) => actions.setRecurrence(live.id, r)} />
+            </Prop>
+            <Prop label="Estimate">
+              <EstimatePicker
+                value={live.estimate ?? null}
+                onChange={(v) => actions.setEstimate(live.id, v)}
+              />
             </Prop>
             <Prop label="Tags">
               <TagEditor tags={live.tags} onChange={(t) => actions.setTags(live.id, t)} />
@@ -282,6 +291,38 @@ export function TaskDrawer({ task, onClose }: { task: Task | null; onClose: () =
         </footer>
       </aside>
     </>
+  );
+}
+
+/** Story points. Fibonacci presets, because relative sizing stops pretending to
+ *  be hours somewhere around 8. Kept inline rather than in Pickers.tsx since the
+ *  backlog rows carry their own denser variant. */
+const POINTS = [1, 2, 3, 5, 8, 13];
+
+function EstimatePicker({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {POINTS.map((p) => (
+        <button
+          key={p}
+          onClick={() => onChange(value === p ? null : p)}
+          title={`${p} point${p === 1 ? "" : "s"}`}
+          className={
+            value === p
+              ? "mono grid h-6 w-6 place-items-center rounded bg-accent text-2xs text-accent-fg"
+              : "mono grid h-6 w-6 place-items-center rounded text-2xs text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+          }
+        >
+          {p}
+        </button>
+      ))}
+    </div>
   );
 }
 

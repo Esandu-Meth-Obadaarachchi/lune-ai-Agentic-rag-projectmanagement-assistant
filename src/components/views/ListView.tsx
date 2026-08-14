@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { PRIORITY_ORDER, projectStatuses } from "@/lib/constants";
+import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
+import { PRIORITY_ORDER, projectStatuses, type StatusMeta } from "@/lib/constants";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import { useTaskActions } from "@/lib/data/useTaskActions";
@@ -81,44 +82,99 @@ export function ListView({
         const status = meta.id;
         const rows = groups[status] ?? [];
         return (
-          <section key={status} className="mb-5">
-            <div className="mb-1 flex items-center gap-2 px-2">
-              {meta.custom ? (
-                <span className="h-2 w-2 rounded-full" style={{ background: meta.hex }} />
-              ) : (
-                <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-              )}
-              <span className="text-[13px] font-semibold text-text">{meta.label}</span>
-              <span className="mono text-2xs text-text-faint">{rows.length}</span>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-border">
-              {rows.map((t, i) => (
-                <Row
-                  key={t.id}
-                  task={t}
-                  depth={0}
-                  first={i === 0}
-                  actions={actions}
-                  onOpenTask={onOpenTask}
-                  childrenByParent={childrenByParent}
-                />
-              ))}
-              {rows.length === 0 && crossProject && (
-                <div className="px-3 py-2 text-2xs text-text-faint">Nothing here</div>
-              )}
-              {!crossProject && (
-                <div className={cn("px-2", rows.length > 0 && "border-t border-border/60")}>
-                  <QuickAdd
-                    placeholder={`Add task to ${meta.label}`}
-                    onAdd={(title) => actions.add(title, { status })}
-                  />
-                </div>
-              )}
-            </div>
-          </section>
+          <StatusGroup
+            key={status}
+            meta={meta}
+            rows={rows}
+            actions={actions}
+            crossProject={crossProject}
+            onOpenTask={onOpenTask}
+            childrenByParent={childrenByParent}
+          />
         );
       })}
     </div>
+  );
+}
+
+/**
+ * One status section. The `+` in the header opens a composer at the top of the
+ * group, so adding to a long list does not mean scrolling past every row to
+ * reach the inline add at the bottom. Mirrors the Board's column header.
+ */
+function StatusGroup({
+  meta,
+  rows,
+  actions,
+  crossProject,
+  onOpenTask,
+  childrenByParent,
+}: {
+  meta: StatusMeta;
+  rows: Task[];
+  actions: Actions;
+  crossProject: boolean;
+  onOpenTask: (t: Task) => void;
+  childrenByParent: Map<string, Task[]>;
+}) {
+  const [addingTop, setAddingTop] = useState(false);
+  const status = meta.id;
+
+  return (
+    <section className="mb-5">
+      <div className="group/head mb-1 flex items-center gap-2 px-2">
+        {meta.custom ? (
+          <span className="h-2 w-2 rounded-full" style={{ background: meta.hex }} />
+        ) : (
+          <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+        )}
+        <span className="text-[13px] font-semibold text-text">{meta.label}</span>
+        <span className="mono text-2xs text-text-faint">{rows.length}</span>
+        {!crossProject && (
+          <button
+            onClick={() => setAddingTop(true)}
+            title={`Add to ${meta.label}`}
+            className="grid h-5 w-5 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-text focus-visible:opacity-100 group-hover/head:opacity-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="overflow-hidden rounded-lg border border-border">
+        {addingTop && !crossProject && (
+          <div className="border-b border-border/60 px-2">
+            <QuickAdd
+              autoFocus
+              placeholder={`Add task to ${meta.label}`}
+              onAdd={(title) => actions.add(title, { status })}
+              onCancel={() => setAddingTop(false)}
+            />
+          </div>
+        )}
+        {rows.map((t, i) => (
+          <Row
+            key={t.id}
+            task={t}
+            depth={0}
+            first={i === 0 && !addingTop}
+            actions={actions}
+            onOpenTask={onOpenTask}
+            childrenByParent={childrenByParent}
+          />
+        ))}
+        {rows.length === 0 && crossProject && (
+          <div className="px-3 py-2 text-2xs text-text-faint">Nothing here</div>
+        )}
+        {!crossProject && (
+          <div className={cn("px-2", rows.length > 0 && "border-t border-border/60")}>
+            <QuickAdd
+              placeholder={`Add task to ${meta.label}`}
+              onAdd={(title) => actions.add(title, { status })}
+            />
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

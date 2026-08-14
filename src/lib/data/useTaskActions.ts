@@ -108,6 +108,8 @@ export function useTaskActions() {
         syncTaskToCalendar(id);
       },
       setTags: (id: string, tags: string[]) => updateTask(id, { tags }),
+      setEstimate: (id: string, estimate: number | null) => updateTask(id, { estimate }),
+      setSprint: (id: string, sprintId: string | null) => updateTask(id, { sprintId }),
       setAssignees: (id: string, list: Assignee[]) => {
         // Keep the legacy single-assignee fields mirroring the first entry so
         // anything still reading assigneeId (print, older data) stays correct.

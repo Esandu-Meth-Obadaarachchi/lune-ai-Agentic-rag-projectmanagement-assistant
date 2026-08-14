@@ -26,6 +26,7 @@ import type {
   Presence,
   Project,
   RetrievedChunk,
+  Sprint,
   Task,
   Whiteboard,
   Workspace,
@@ -324,6 +325,8 @@ export interface NewTaskInput {
   dueEndTime?: string | null;
   order?: number;
   assignee?: { id: string; name: string; avatar?: string | null } | null;
+  sprintId?: string | null;
+  estimate?: number | null;
 }
 
 export async function createTask(input: NewTaskInput): Promise<string> {
@@ -352,6 +355,9 @@ export async function createTask(input: NewTaskInput): Promise<string> {
     recurrence: null,
     timeEntries: [],
     googleEventId: null,
+    sprintId: input.sprintId ?? null,
+    estimate: input.estimate ?? null,
+    completedAt: null,
     order: input.order ?? now,
     createdAt: now,
     updatedAt: now,
@@ -362,8 +368,22 @@ export async function createTask(input: NewTaskInput): Promise<string> {
   return ref.id;
 }
 
+/**
+ * Stamp `completedAt` alongside a status change. `updatedAt` moves on every
+ * edit, so it cannot answer "what did this person ship last week" — that needs
+ * its own timestamp. Applied here rather than at each call site because status
+ * is also written by the board drag and by the agent's tools.
+ */
+function withCompletion(patch: Partial<Task>): Record<string, unknown> {
+  if (patch.status === undefined || patch.completedAt !== undefined) return { ...patch };
+  return { ...patch, completedAt: patch.status === "done" ? Date.now() : null };
+}
+
 export async function updateTask(id: string, patch: Partial<Task>) {
-  await updateDoc(doc(requireDb(), "tasks", id), { ...patch, updatedAt: Date.now() });
+  await updateDoc(doc(requireDb(), "tasks", id), {
+    ...withCompletion(patch),
+    updatedAt: Date.now(),
+  });
 }
 
 /** Delete a task and all of its descendants in one batch. */
@@ -380,9 +400,118 @@ export async function commitTaskMoves(moves: { id: string; order: number; parent
   moves.forEach((m) => {
     const patch: Record<string, unknown> = { order: m.order, updatedAt: now };
     if (m.parentId !== undefined) patch.parentId = m.parentId;
-    if (m.status !== undefined) patch.status = m.status;
+    if (m.status !== undefined) {
+      patch.status = m.status;
+      patch.completedAt = m.status === "done" ? now : null;
+    }
     batch.update(doc(requireDb(), "tasks", m.id), patch);
   });
+  await batch.commit();
+}
+
+/* ------------------------------ sprints ------------------------------ */
+
+/** Sprints of one project, newest first. */
+export function watchSprints(uid: string, projectId: string, cb: (s: Sprint[]) => void): Unsubscribe {
+  const q = query(collection(requireDb(), "sprints"), where("memberIds", "array-contains", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as Omit<Sprint, "id">) }))
+        .filter((s) => s.projectId === projectId)
+        .sort((a, b) => b.startDate.localeCompare(a.startDate));
+      cb(rows);
+    },
+    (err) => console.error("watchSprints error", err)
+  );
+}
+
+export async function createSprint(
+  project: Project,
+  input: { name: string; goal?: string; startDate: string; endDate: string }
+): Promise<string> {
+  const ref = await addDoc(collection(requireDb(), "sprints"), {
+    workspaceId: project.workspaceId,
+    projectId: project.id,
+    name: input.name.trim(),
+    goal: input.goal?.trim() ?? "",
+    startDate: input.startDate,
+    endDate: input.endDate,
+    status: "planned",
+    createdAt: Date.now(),
+    completedAt: null,
+    committedPoints: null,
+    memberIds: project.memberIds ?? [],
+  } satisfies Omit<Sprint, "id">);
+  return ref.id;
+}
+
+export async function updateSprint(id: string, patch: Partial<Sprint>) {
+  await updateDoc(doc(requireDb(), "sprints", id), patch);
+}
+
+/**
+ * Start a sprint. Only one sprint per project runs at a time, so any other
+ * active sprint is closed first. The committed point total is frozen here: work
+ * added later must not rewrite what the team promised at planning.
+ */
+export async function startSprint(sprint: Sprint, tasks: Task[], siblings: Sprint[]) {
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const committed = tasks
+    .filter((t) => t.sprintId === sprint.id)
+    .reduce((sum, t) => sum + (t.estimate ?? 0), 0);
+  siblings
+    .filter((s) => s.id !== sprint.id && s.status === "active")
+    .forEach((s) =>
+      batch.update(doc(database, "sprints", s.id), { status: "completed", completedAt: Date.now() })
+    );
+  batch.update(doc(database, "sprints", sprint.id), { status: "active", committedPoints: committed });
+  await batch.commit();
+}
+
+/**
+ * Close a sprint and decide what happens to work left open in it.
+ * `backlog` clears the sprint so the task returns to the backlog; a sprint id
+ * rolls it into that sprint. Completed tasks always stay attached, otherwise
+ * the velocity history would rewrite itself every time a sprint closed.
+ */
+export async function completeSprint(sprintId: string, tasks: Task[], carryTo: string | "backlog") {
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  tasks
+    .filter((t) => t.sprintId === sprintId && t.status !== "done")
+    .forEach((t) =>
+      batch.update(doc(database, "tasks", t.id), {
+        sprintId: carryTo === "backlog" ? null : carryTo,
+        updatedAt: now,
+      })
+    );
+  batch.update(doc(database, "sprints", sprintId), { status: "completed", completedAt: now });
+  await batch.commit();
+}
+
+/** Delete a sprint. Its tasks return to the backlog rather than disappearing. */
+export async function deleteSprint(sprintId: string, tasks: Task[]) {
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  tasks
+    .filter((t) => t.sprintId === sprintId)
+    .forEach((t) => batch.update(doc(database, "tasks", t.id), { sprintId: null, updatedAt: now }));
+  batch.delete(doc(database, "sprints", sprintId));
+  await batch.commit();
+}
+
+/** Move tasks into a sprint, or out to the backlog when `sprintId` is null. */
+export async function assignTasksToSprint(taskIds: string[], sprintId: string | null) {
+  if (!taskIds.length) return;
+  const database = requireDb();
+  const batch = writeBatch(database);
+  const now = Date.now();
+  taskIds.forEach((id) => batch.update(doc(database, "tasks", id), { sprintId, updatedAt: now }));
   await batch.commit();
 }
 
