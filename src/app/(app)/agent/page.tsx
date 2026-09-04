@@ -192,11 +192,11 @@ export default function AgentPage() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 border-b border-border px-3 py-3 sm:px-4">
+        <header className="flex items-center gap-2 border-b border-hairline/[0.08] px-3 py-3 sm:px-4">
           <button
             onClick={() => setChatListOpen(true)}
             aria-label="Chat history"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text lg:hidden"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-hairline/[0.06] hover:text-text lg:hidden"
           >
             <MessagesSquare className="h-5 w-5" />
           </button>
@@ -226,7 +226,7 @@ export default function AgentPage() {
             ) : (
               <button
                 onClick={() => setStandupOpen(true)}
-                className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] text-text-muted transition-colors hover:border-border-strong hover:text-text"
+                className="flex w-full items-center gap-2 rounded-lg border border-hairline/[0.08] bg-surface-2 px-3 py-2 text-sm text-text-muted transition-colors hover:border-hairline/20 hover:text-text"
               >
                 <Sparkles className="h-3.5 w-3.5 text-accent" />
                 Today&apos;s standup
@@ -238,7 +238,7 @@ export default function AgentPage() {
             )}
 
             {messages.length === 0 ? (
-              <div className="mt-6 text-center text-[13px] text-text-muted">
+              <div className="mt-6 text-center text-sm text-text-muted">
                 Ask about any project, or tell me to create and update tasks.
               </div>
             ) : (
@@ -252,21 +252,21 @@ export default function AgentPage() {
         </div>
 
         {/* Composer */}
-        <div className="border-t border-border px-3 py-3 sm:px-4">
+        <div className="border-t border-hairline/[0.08] px-3 py-3 sm:px-4">
           <div className="mx-auto max-w-2xl">
             <div className="mb-2 flex flex-wrap gap-1.5">
               {CHIPS.map((c) => (
                 <button
                   key={c.label}
                   onClick={() => (c.label === "Create a task" ? setInput("Create a task: ") : send(c.label))}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-2xs text-text-muted transition-colors hover:border-border-strong hover:text-text"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-hairline/[0.08] bg-surface-2 px-2.5 py-1 text-2xs text-text-muted transition-colors hover:border-hairline/20 hover:text-text"
                 >
                   <c.icon className="h-3 w-3" />
                   {c.label}
                 </button>
               ))}
             </div>
-            <div className="flex items-end gap-2 rounded-xl border border-border bg-surface-2 p-1.5 focus-within:border-accent/50">
+            <div className="flex items-end gap-2 rounded-xl border border-hairline/[0.08] bg-surface-2 p-1.5 focus-within:border-accent/50">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -280,7 +280,7 @@ export default function AgentPage() {
                 rows={1}
                 maxLength={MAX_CHAT_INPUT_CHARS}
                 placeholder="Ask the brain anything…"
-                className="max-h-60 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1.5 text-[13.5px] leading-relaxed text-text outline-none placeholder:text-text-faint"
+                className="max-h-60 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1.5 text-sm leading-relaxed text-text outline-none placeholder:text-text-faint"
               />
               <button
                 onClick={() => send(input)}

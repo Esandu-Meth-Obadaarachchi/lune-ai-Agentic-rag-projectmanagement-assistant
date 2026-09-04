@@ -194,7 +194,7 @@ function EventRow({ entry }: { entry: TimelineEntry }) {
   const Icon = entry.verb ? VERB_ICON[entry.verb] : CircleDot;
   return (
     <div className="flex items-center gap-2 text-2xs text-text-faint">
-      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border bg-surface-2">
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-hairline/[0.08] bg-surface-2">
         <Icon className="h-2.5 w-2.5" />
       </span>
       <span className="min-w-0 flex-1 truncate">
@@ -241,7 +241,7 @@ function CommentRow({
   }
 
   return (
-    <div className="group rounded-md p-1.5 transition-colors hover:bg-surface-2/60">
+    <div className="group rounded-md p-1.5 transition-colors hover:bg-hairline/[0.036]">
       <div className="flex items-center gap-2">
         <Avatar name={entry.name} src={entry.photoURL} size={20} />
         <span className="truncate text-2xs font-medium text-text">{entry.name}</span>
@@ -252,7 +252,7 @@ function CommentRow({
             <button
               onClick={onEdit}
               aria-label="Edit comment"
-              className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-surface-3 hover:text-text"
+              className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-hairline/[0.09] hover:text-text"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -266,7 +266,7 @@ function CommentRow({
           </div>
         )}
       </div>
-      <div className="mt-1 whitespace-pre-wrap pl-[28px] text-[13px] leading-relaxed text-text">
+      <div className="mt-1 whitespace-pre-wrap pl-[28px] text-sm leading-relaxed text-text">
         {parseMentions(entry.body ?? "").map((span, i) =>
           span.type === "mention" ? (
             <span key={i} className="rounded bg-accent/15 px-1 py-0.5 font-medium text-accent">
@@ -332,15 +332,15 @@ function Composer({
   return (
     <div className="relative">
       {picking && (
-        <div className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-md border border-border bg-surface p-1 shadow-pop">
+        <div className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-md border border-hairline/[0.08] bg-surface p-1 shadow-e3">
           {matches.map((p, i) => (
             <button
               key={p.id}
               onMouseEnter={() => setPick(i)}
               onClick={() => choose(p)}
               className={cn(
-                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] transition-colors",
-                i === pick ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2"
+                "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors",
+                i === pick ? "bg-surface-2 text-text" : "text-text-muted hover:bg-hairline/[0.06]"
               )}
             >
               <Avatar name={p.name} src={p.avatar} size={18} />
@@ -390,17 +390,17 @@ function Composer({
           }
           if (e.key === "Escape" && onCancel) onCancel();
         }}
-        className="w-full resize-none rounded-md border border-border bg-surface-2 px-2.5 py-2 text-[13px] text-text outline-none transition-colors placeholder:text-text-faint focus:border-accent/50"
+        className="w-full resize-none rounded-md border border-hairline/[0.08] bg-surface-2 px-2.5 py-2 text-sm text-text outline-none transition-colors placeholder:text-text-faint focus:border-accent/50"
       />
 
       <div className="mt-1 flex items-center gap-2">
         <span className="text-2xs text-text-faint">
-          <kbd className="mono rounded border border-border bg-surface-2 px-1">↵</kbd> to send
+          <kbd className="mono rounded border border-hairline/[0.08] bg-surface-2 px-1">↵</kbd> to send
         </span>
         {onCancel && (
           <button
             onClick={onCancel}
-            className="ml-auto rounded-md px-2 py-1 text-2xs text-text-muted hover:bg-surface-2 hover:text-text"
+            className="ml-auto rounded-md px-2 py-1 text-2xs text-text-muted hover:bg-hairline/[0.06] hover:text-text"
           >
             Cancel
           </button>

@@ -111,23 +111,31 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-accent">
+    <div className="h-full overflow-y-auto overflow-x-hidden">
+      <header className="flex flex-wrap items-center gap-3 border-b border-hairline/[0.08] px-4 py-3 sm:px-5 sm:py-4">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-accent/[0.12] text-accent shadow-[inset_0_1px_0_rgb(var(--hairline)/0.08)]">
           <CalendarCheck2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </span>
         <div className="min-w-0">
-          <h1 className="truncate text-[17px] font-semibold tracking-tight">
+          <h1 className="t-title truncate text-xl">
             {isToday ? greeting() : dueLabel(date) || format(new Date(date), "EEEE")}
           </h1>
-          <div className="text-xs text-text-muted">{format(new Date(date), "EEEE, d MMMM")}</div>
+          <p className="mt-0.5 text-2xs text-text-faint">{format(new Date(date), "EEEE, d MMMM")}</p>
         </div>
         <div className="ml-auto flex w-full items-center gap-1.5 sm:w-auto">
-          <div className="flex items-center gap-1">
+          <div className="hidden items-center gap-4 sm:flex">
+            <Stat label={isToday ? "due today" : "due"} value={dueOnDate.length} />
+            {showOverdue && <Stat label="overdue" value={overdue.length} tone="danger" />}
+            {doneOnDate > 0 && <Stat label="done" value={doneOnDate} />}
+          </div>
+          {/* One segmented cluster: prev / today / next reads as a single
+              control rather than three boxes that happen to sit together. */}
+          <div className="flex items-center gap-0.5 rounded-md border border-hairline/[0.06] bg-hairline/[0.025] p-0.5">
             <button
               onClick={() => shiftDate(-1)}
               title="Previous day"
-              className="grid h-7 w-7 place-items-center rounded-md border border-border bg-surface-2 text-text-muted transition-colors hover:border-border-strong hover:text-text"
+              aria-label="Previous day"
+              className="press grid h-7 w-7 place-items-center rounded-[7px] text-text-muted transition-colors hover:bg-hairline/[0.07] hover:text-text"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -135,10 +143,10 @@ export default function TodayPage() {
               onClick={() => setDate(today)}
               title="Jump to today"
               className={cn(
-                "h-7 rounded-md border px-2.5 text-2xs font-medium transition-colors",
+                "press h-7 rounded-[7px] px-2.5 text-2xs font-medium transition-colors",
                 isToday
-                  ? "border-border bg-surface-2 text-text-faint"
-                  : "border-accent/30 bg-accent/10 text-accent hover:bg-accent/15"
+                  ? "text-text-faint"
+                  : "bg-accent/15 text-accent hover:bg-accent/20"
               )}
             >
               {isToday ? "Today" : "Back to today"}
@@ -146,20 +154,16 @@ export default function TodayPage() {
             <button
               onClick={() => shiftDate(1)}
               title="Next day"
-              className="grid h-7 w-7 place-items-center rounded-md border border-border bg-surface-2 text-text-muted transition-colors hover:border-border-strong hover:text-text"
+              aria-label="Next day"
+              className="press grid h-7 w-7 place-items-center rounded-[7px] text-text-muted transition-colors hover:bg-hairline/[0.07] hover:text-text"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <Stat label={isToday ? "due today" : "due"} value={dueOnDate.length} />
-            {showOverdue && <Stat label="overdue" value={overdue.length} tone="danger" />}
-            {doneOnDate > 0 && <Stat label="done" value={doneOnDate} />}
-          </div>
           <button
             onClick={exportToday}
             title="Export the day's tasks as CSV"
-            className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 text-2xs font-medium text-text-muted transition-colors hover:border-border-strong hover:text-text"
+            className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-hairline/[0.12] px-2.5 text-2xs font-medium text-text-muted shadow-[inset_0_1px_0_rgb(var(--hairline)/0.05)] transition-colors hover:border-hairline/20 hover:bg-hairline/[0.05] hover:text-text"
           >
             <Download className="h-3.5 w-3.5" /> Export
           </button>
@@ -168,7 +172,7 @@ export default function TodayPage() {
 
       <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-6 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Left: the day's tasks */}
-        <section className="space-y-6">
+        <section className="min-w-0 space-y-6">
           <TaskGroup
             title={isToday ? "Due today" : `Due ${dueLabel(date) || format(new Date(date), "d MMM")}`}
             tasks={dueOnDate}
@@ -229,27 +233,34 @@ function TaskGroup({
     <div>
       <h2
         className={cn(
-          "mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider",
+          "mb-2 flex items-center gap-2 text-2xs font-semibold uppercase tracking-[0.09em]",
           tone === "danger" ? "text-danger" : "text-text-faint"
         )}
       >
         {title}
-        <span className="mono text-text-faint">{tasks.length}</span>
+        <span className="mono rounded bg-hairline/[0.07] px-1.5 py-px text-2xs font-semibold normal-case tracking-normal text-text-muted">
+          {tasks.length}
+        </span>
       </h2>
       {tasks.length === 0 ? (
         empty ? (
-          <div className="card p-4 text-[13px] text-text-muted">{empty}</div>
+          <div className="card grid place-items-center gap-2 px-4 py-10 text-center">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-hairline/[0.06] text-text-faint shadow-[inset_0_1px_0_rgb(var(--hairline)/0.08)]">
+              <CalendarCheck2 className="h-5 w-5" strokeWidth={1.6} />
+            </span>
+            <p className="max-w-[34ch] text-sm text-text-muted">{empty}</p>
+          </div>
         ) : null
       ) : (
-        <div className="card divide-y divide-border/60 overflow-hidden">
+        <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
           {tasks.map((t) => (
             <button
               key={t.id}
               onClick={() => onOpen(t)}
-              className="flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors hover:bg-surface-2 sm:py-2.5"
+              className="relative flex w-full items-center gap-2.5 px-3 py-3 text-left transition-colors duration-150 hover:bg-hairline/[0.05] sm:py-2.5"
             >
               <PriorityDot priority={t.priority} />
-              <span className="flex-1 truncate text-[13px] text-text">{t.title}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-text">{t.title}</span>
               {taskAssignees(t).length > 0 && (
                 <span className="shrink-0">
                   <AssigneeStack assignees={taskAssignees(t)} size={18} max={3} />
@@ -320,32 +331,34 @@ function Notebook({
   const isToday = date === today;
 
   return (
-    <section className="min-h-[320px] lg:sticky lg:top-6 lg:h-[calc(100vh-8.5rem)]">
+    <section className="min-w-0 min-h-[320px] lg:sticky lg:top-6 lg:h-[calc(100vh-8.5rem)]">
       <div className="card flex h-full flex-col overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
+        <div className="lit flex items-center gap-2 border-b border-hairline/[0.07] px-3.5 py-2.5">
           <NotebookPen className="h-4 w-4 text-accent" />
-          <span className="text-[13px] font-medium text-text">Day planner</span>
-          <div className="ml-auto flex items-center gap-1">
+          <span className="t-heading text-sm text-text">Day planner</span>
+          <div className="ml-auto flex items-center gap-0.5 rounded-md border border-hairline/[0.06] bg-hairline/[0.025] p-0.5">
             <button
               onClick={() => shift(-1)}
-              className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
+              className="press grid h-6 w-6 place-items-center rounded-[6px] text-text-faint transition-colors hover:bg-hairline/[0.07] hover:text-text"
               title="Previous day"
+              aria-label="Previous day"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setDate(today)}
               className={cn(
-                "rounded px-2 py-0.5 text-2xs font-medium transition-colors",
-                isToday ? "text-text-faint" : "text-accent hover:bg-surface-2"
+                "mono press rounded-[6px] px-2 py-0.5 text-2xs font-medium transition-colors",
+                isToday ? "text-text-faint" : "text-accent hover:bg-hairline/[0.07]"
               )}
             >
               {dueLabel(date) || format(new Date(date), "d MMM")}
             </button>
             <button
               onClick={() => shift(1)}
-              className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
+              className="press grid h-6 w-6 place-items-center rounded-[6px] text-text-faint transition-colors hover:bg-hairline/[0.07] hover:text-text"
               title="Next day"
+              aria-label="Next day"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -355,10 +368,17 @@ function Notebook({
           value={content}
           onChange={(e) => onChange(e.target.value)}
           placeholder={"Plan your day…\n\n09:00  Deep work — solar dashboard\n11:00  Standup\n14:00  Gradify build\n\nNotes, ideas, anything."}
-          className="min-h-[280px] flex-1 resize-none bg-transparent px-4 py-3.5 text-[13.5px] leading-relaxed text-text outline-none placeholder:text-text-faint/70"
+          className="min-h-[280px] flex-1 resize-none bg-transparent px-4 py-3.5 text-sm leading-[1.75] text-text outline-none placeholder:text-text-faint/60"
           spellCheck={false}
         />
-        <div className="flex items-center justify-end border-t border-border px-3.5 py-1.5 text-2xs text-text-faint">
+        <div className="flex items-center justify-end gap-1.5 border-t border-hairline/[0.07] px-3.5 py-1.5 text-2xs text-text-faint">
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-full transition-colors",
+              status === "saving" ? "animate-pulse-dot bg-accent" : "bg-ok/70"
+            )}
+            aria-hidden
+          />
           {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "Synced"}
         </div>
       </div>
@@ -368,14 +388,16 @@ function Notebook({
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "danger" }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted",
-        tone === "danger" && "border-danger/25 bg-danger/10 text-danger"
-      )}
-    >
-      <span className="mono font-semibold text-text">{value}</span>
-      {label}
+    <span className="flex items-baseline gap-1.5">
+      <span
+        className={cn(
+          "mono text-base font-semibold tabular-nums",
+          tone === "danger" && value > 0 ? "text-danger" : "text-text"
+        )}
+      >
+        {value}
+      </span>
+      <span className="whitespace-nowrap text-2xs text-text-faint">{label}</span>
     </span>
   );
 }

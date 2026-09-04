@@ -68,7 +68,7 @@ export default function KnowledgePage() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <header className="border-b border-border px-4 py-3">
+      <header className="border-b border-hairline/[0.08] px-4 py-3">
         <h1 className="text-[15px] font-semibold tracking-tight">Knowledge base</h1>
         <p className="mt-0.5 text-xs text-text-muted">
           Upload documents so the agent can answer questions and link them to your tasks.
@@ -106,7 +106,7 @@ export default function KnowledgePage() {
           onClick={() => fileRef.current?.click()}
           className={cn(
             "mt-1 grid cursor-pointer place-items-center rounded-xl border border-dashed px-6 py-10 text-center transition-colors",
-            dragOver ? "border-accent bg-accent/[0.06]" : "border-border hover:border-border-strong hover:bg-surface-2"
+            dragOver ? "border-accent bg-accent/[0.06]" : "border-hairline/[0.08] hover:border-hairline/20 hover:bg-hairline/[0.06]"
           )}
         >
           <input
@@ -154,9 +154,9 @@ export default function KnowledgePage() {
             <div className="mb-2 text-2xs font-medium uppercase tracking-wide text-text-faint">This session</div>
             <div className="space-y-1.5">
               {uploads.map((u) => (
-                <div key={u.id} className="flex items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2">
+                <div key={u.id} className="flex items-center gap-2.5 rounded-lg border border-hairline/[0.08] bg-surface px-3 py-2">
                   <FileText className="h-4 w-4 shrink-0 text-text-muted" />
-                  <span className="flex-1 truncate text-[13px] text-text">{u.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-text">{u.name}</span>
                   {u.status === "uploading" && <Loader2 className="h-4 w-4 animate-spin text-text-muted" />}
                   {u.status === "done" && (
                     <span className="flex items-center gap-1 text-2xs text-ok">

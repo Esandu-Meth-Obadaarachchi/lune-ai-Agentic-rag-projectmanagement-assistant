@@ -98,7 +98,7 @@ export function Dropdown({
           <div
             ref={popRef}
             className={cn(
-              "glass fixed z-[110] origin-top animate-scale-in overflow-hidden rounded-lg p-1 shadow-pop",
+              "glass fixed z-[110] origin-top animate-scale-in overflow-hidden rounded-xl p-1.5 shadow-e3",
               className
             )}
             style={{
@@ -136,14 +136,14 @@ export function MenuItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
-        danger ? "text-danger hover:bg-danger/10" : "text-text hover:bg-surface-2",
-        active && "bg-surface-2"
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-[7px] text-left text-sm transition-colors duration-150",
+        danger ? "text-danger hover:bg-danger/10" : "text-text hover:bg-hairline/[0.07]",
+        active && "bg-hairline/[0.07]"
       )}
     >
       {icon && <span className="grid h-4 w-4 place-items-center text-text-muted">{icon}</span>}
-      <span className="flex-1 truncate">{children}</span>
-      {active && <span className="text-accent">✓</span>}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {active && <span className="text-accent" aria-hidden>✓</span>}
     </button>
   );
 }

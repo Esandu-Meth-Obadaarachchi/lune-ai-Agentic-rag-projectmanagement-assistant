@@ -51,7 +51,7 @@ export default function PagesIndex() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+      <header className="flex items-center gap-3 border-b border-hairline/[0.08] px-5 py-4">
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-accent">
           <FileText className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </span>
@@ -121,18 +121,18 @@ function Section({
         {title}
       </h2>
       {pages.length === 0 ? (
-        <div className="card p-4 text-[13px] text-text-muted">No pages here yet.</div>
+        <div className="card p-4 text-sm text-text-muted">No pages here yet.</div>
       ) : (
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {pages.map((p) => (
             <button
               key={p.id}
               onClick={() => onOpen(p.id)}
-              className="card flex items-start gap-2.5 p-3.5 text-left transition-colors hover:border-border-strong"
+              className="card flex items-start gap-2.5 p-3.5 text-left transition-colors hover:border-hairline/20"
             >
               <span className="text-xl leading-none">{p.icon || "📄"}</span>
               <div className="min-w-0">
-                <div className="truncate text-[13.5px] font-medium text-text">{p.title || "Untitled"}</div>
+                <div className="truncate text-sm font-medium text-text">{p.title || "Untitled"}</div>
                 <div className="mt-0.5 text-2xs text-text-faint">edited {relativeTime(p.updatedAt)}</div>
               </div>
             </button>

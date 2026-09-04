@@ -16,7 +16,7 @@ import {
 } from "react";
 import { auth, googleProvider, isFirebaseConfigured } from "@/lib/firebase/client";
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   loading: boolean;
   configured: boolean;
@@ -24,7 +24,9 @@ interface AuthState {
   signOutUser: () => Promise<void>;
 }
 
-const AuthCtx = createContext<AuthState>({
+/** Exported so the dev-only /preview harness can mount the shell without a
+ *  real Google sign-in. Never provided anywhere in the app itself. */
+export const AuthCtx = createContext<AuthState>({
   user: null,
   loading: true,
   configured: false,

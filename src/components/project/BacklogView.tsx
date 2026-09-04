@@ -94,8 +94,8 @@ function Tab({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
-        active ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2 hover:text-text"
+        "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+        active ? "bg-surface-2 text-text" : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
       )}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -185,7 +185,7 @@ function Backlog({
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-border/60">
+          <div className="divide-y divide-hairline/[0.042]">
             {rows.map((t) => (
               <BacklogRow
                 key={t.id}
@@ -199,7 +199,7 @@ function Backlog({
             ))}
           </div>
         )}
-        <div className="border-t border-border/60 px-2">
+        <div className="border-t border-hairline/[0.048] px-2">
           <QuickAdd placeholder="Add to backlog" onAdd={(title) => actions.add(title)} />
         </div>
       </div>
@@ -231,7 +231,7 @@ function BacklogRow({
     <div
       className={cn(
         "flex items-center gap-2 px-2.5 transition-colors sm:gap-2.5 sm:px-3",
-        picked ? "bg-accent/[0.06]" : "hover:bg-surface-2"
+        picked ? "bg-accent/[0.06]" : "hover:bg-hairline/[0.06]"
       )}
     >
       <input
@@ -243,7 +243,7 @@ function BacklogRow({
       />
       <StatusControl status={task.status} onChange={onStatus} />
       <PriorityDot priority={task.priority} />
-      <button onClick={onOpen} className="flex-1 truncate py-3 text-left text-[13.5px] text-text sm:py-2.5">
+      <button onClick={onOpen} className="min-w-0 flex-1 truncate py-3 text-left text-sm text-text sm:py-2.5">
         {task.title}
       </button>
 
@@ -261,7 +261,7 @@ function BacklogRow({
             "mono inline-flex h-6 min-w-[30px] items-center justify-center gap-0.5 rounded-md border px-1.5 text-2xs transition-colors",
             task.estimate != null
               ? "border-accent/30 bg-accent/10 text-accent"
-              : "border-dashed border-border text-text-faint hover:border-border-strong hover:text-text-muted"
+              : "border-dashed border-hairline/[0.08] text-text-faint hover:border-hairline/20 hover:text-text-muted"
           )}
         >
           {task.estimate ?? "–"}
@@ -270,7 +270,7 @@ function BacklogRow({
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-7 z-50 flex gap-0.5 rounded-md border border-border bg-surface p-1 shadow-pop">
+            <div className="absolute right-0 top-7 z-50 flex gap-0.5 rounded-md border border-hairline/[0.08] bg-surface p-1 shadow-e3">
               {POINTS.map((p) => (
                 <button
                   key={p}
@@ -282,7 +282,7 @@ function BacklogRow({
                     "mono grid h-6 w-6 place-items-center rounded text-2xs transition-colors",
                     task.estimate === p
                       ? "bg-accent text-accent-fg"
-                      : "text-text-muted hover:bg-surface-2 hover:text-text"
+                      : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
                   )}
                 >
                   {p}
@@ -293,7 +293,7 @@ function BacklogRow({
                   onEstimate(null);
                   setOpen(false);
                 }}
-                className="grid h-6 w-6 place-items-center rounded text-2xs text-text-faint hover:bg-surface-2 hover:text-danger"
+                className="grid h-6 w-6 place-items-center rounded text-2xs text-text-faint hover:bg-hairline/[0.06] hover:text-danger"
                 title="Clear"
               >
                 ×
@@ -353,7 +353,7 @@ function Delivered({
                 "rounded-md px-2 py-1 text-2xs font-medium transition-colors",
                 range === r.id
                   ? "bg-surface-2 text-text"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text"
+                  : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
               )}
             >
               {r.label}
@@ -396,7 +396,7 @@ function Delivered({
       )}
 
       {untimed > 0 && (
-        <p className="mt-3 rounded-md border border-border bg-surface-2 px-3 py-2 text-2xs text-text-muted">
+        <p className="mt-3 rounded-md border border-hairline/[0.08] bg-surface-2 px-3 py-2 text-2xs text-text-muted">
           {untimed} task{untimed === 1 ? "" : "s"} finished before completion tracking started, so
           {untimed === 1 ? " it does" : " they do"} not appear here. Anything closed from now on
           will.
@@ -413,16 +413,16 @@ function PersonCard({ row, onOpenTask }: { row: DeliveredRow; onOpenTask: (t: Ta
     <div className="card overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-hairline/[0.06]"
       >
         {row.uid === "unassigned" ? (
-          <span className="grid h-6 w-6 place-items-center rounded-full border border-dashed border-border text-2xs text-text-faint">
+          <span className="grid h-6 w-6 place-items-center rounded-full border border-dashed border-hairline/[0.08] text-2xs text-text-faint">
             ?
           </span>
         ) : (
           <Avatar name={row.name} src={row.avatar} size={24} />
         )}
-        <span className="flex-1 truncate text-[13.5px] font-medium text-text">{row.name}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{row.name}</span>
         <span className="mono text-2xs text-text-muted">{row.tasks.length} done</span>
         {row.points > 0 && <span className="mono text-2xs text-accent">{row.points} pts</span>}
         {hours >= 0.1 && (
@@ -436,7 +436,7 @@ function PersonCard({ row, onOpenTask }: { row: DeliveredRow; onOpenTask: (t: Ta
         />
       </button>
       {open && (
-        <div className="divide-y divide-border/60 border-t border-border">
+        <div className="divide-y divide-hairline/[0.042] border-t border-hairline/[0.08]">
           {row.tasks
             .slice()
             .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
@@ -444,10 +444,10 @@ function PersonCard({ row, onOpenTask }: { row: DeliveredRow; onOpenTask: (t: Ta
               <button
                 key={t.id}
                 onClick={() => onOpenTask(t)}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hairline/[0.06]"
               >
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-done" />
-                <span className="flex-1 truncate text-[13px] text-text-muted line-through">
+                <span className="min-w-0 flex-1 truncate text-sm text-text-muted line-through">
                   {t.title}
                 </span>
                 {t.estimate != null && (

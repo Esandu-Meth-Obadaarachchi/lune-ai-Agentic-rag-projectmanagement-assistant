@@ -209,7 +209,7 @@ function Column({
         ) : (
           <AvatarEmpty size={20} />
         )}
-        <span className="truncate text-[13px] font-medium text-text">
+        <span className="truncate text-sm font-medium text-text">
           {member?.name ?? "Unassigned"}
         </span>
         <span className="mono text-2xs text-text-faint" title={`${open} open of ${ids.length}`}>
@@ -217,7 +217,7 @@ function Column({
           {ids.length !== open && <span className="text-text-faint/60">/{ids.length}</span>}
         </span>
         {member?.role && (
-          <span className="ml-auto rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs capitalize text-text-muted">
+          <span className="ml-auto rounded border border-hairline/[0.08] bg-surface-2 px-1.5 py-0.5 text-2xs capitalize text-text-muted">
             {member.role}
           </span>
         )}
@@ -246,7 +246,7 @@ function Column({
           })}
         </SortableContext>
         {ids.length === 0 && (
-          <div className="grid place-items-center rounded-lg border border-dashed border-border/60 py-6 text-2xs text-text-faint">
+          <div className="grid place-items-center rounded-lg border border-dashed border-hairline/[0.048] py-6 text-2xs text-text-faint">
             Drop tasks here
           </div>
         )}

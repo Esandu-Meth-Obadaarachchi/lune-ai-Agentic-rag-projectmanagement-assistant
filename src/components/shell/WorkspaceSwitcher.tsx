@@ -51,12 +51,12 @@ export function WorkspaceSwitcher() {
         width={244}
         className="!left-0"
         trigger={() => (
-          <div className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-3">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface text-base">
+          <div className="press flex w-full items-center gap-2.5 rounded-md border border-hairline/[0.08] bg-hairline/[0.04] px-2 py-1.5 text-left transition-colors duration-200 hover:border-hairline/[0.14] hover:bg-hairline/[0.07]">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-hairline/[0.06] text-base shadow-[inset_0_1px_0_rgb(var(--hairline)/0.07)]">
               {currentWorkspace?.emoji ?? "🧠"}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold text-text">
+              <div className="t-heading truncate text-sm text-text">
                 {currentWorkspace?.name ?? "Workspace"}
               </div>
               <div className="text-2xs text-text-faint">
@@ -69,15 +69,15 @@ export function WorkspaceSwitcher() {
       >
         {(close) => (
           <div>
-            <div className="px-2 pb-1 pt-1 text-2xs font-medium uppercase tracking-wide text-text-faint">
+            <div className="px-2 pb-1 pt-0.5 text-2xs font-semibold uppercase tracking-[0.09em] text-text-faint">
               Workspaces
             </div>
             {workspaces.map((w) => (
               <div
                 key={w.id}
                 className={cn(
-                  "group flex items-center rounded-md pr-1 transition-colors hover:bg-surface-2",
-                  w.id === currentWorkspace?.id && "bg-surface-2"
+                  "group flex items-center rounded-md pr-1 transition-colors hover:bg-hairline/[0.07]",
+                  w.id === currentWorkspace?.id && "bg-hairline/[0.07]"
                 )}
               >
                 <button
@@ -85,12 +85,12 @@ export function WorkspaceSwitcher() {
                     selectWorkspace(w.id);
                     close();
                   }}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left text-[13px]"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left text-sm"
                 >
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-surface text-sm">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-hairline/[0.06] text-sm">
                     {w.emoji}
                   </span>
-                  <span className="flex-1 truncate text-text">{w.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-text">{w.name}</span>
                   {w.id === currentWorkspace?.id && <Check className="h-3.5 w-3.5 shrink-0 text-accent" />}
                 </button>
                 <button
@@ -106,15 +106,15 @@ export function WorkspaceSwitcher() {
                 </button>
               </div>
             ))}
-            <div className="my-1 h-px bg-border" />
+            <div className="my-1 h-px bg-hairline/[0.08]" />
             <button
               onClick={() => {
                 setCreating(true);
                 close();
               }}
-              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-[7px] text-left text-sm text-text-muted transition-colors hover:bg-hairline/[0.07] hover:text-text"
             >
-              <span className="grid h-6 w-6 place-items-center rounded-md border border-dashed border-border-strong">
+              <span className="grid h-6 w-6 place-items-center rounded-md border border-dashed border-hairline/20">
                 <Plus className="h-3.5 w-3.5" />
               </span>
               New workspace
@@ -131,8 +131,8 @@ export function WorkspaceSwitcher() {
                 key={e}
                 onClick={() => setEmoji(e)}
                 className={cn(
-                  "grid h-9 w-9 place-items-center rounded-md border text-lg transition-colors",
-                  emoji === e ? "border-accent bg-accent/10" : "border-border hover:bg-surface-2"
+                  "press grid h-9 w-9 place-items-center rounded-md border text-lg transition-all duration-200",
+                  emoji === e ? "border-accent/60 bg-accent/10 shadow-glow" : "border-hairline/[0.09] hover:bg-hairline/[0.06]"
                 )}
               >
                 {e}
@@ -161,7 +161,7 @@ export function WorkspaceSwitcher() {
       </Modal>
 
       <Modal open={!!toDelete} onClose={() => setToDelete(null)} title="Delete workspace">
-        <p className="text-[13px] leading-relaxed text-text-muted">
+        <p className="text-sm leading-relaxed text-text-muted">
           Delete <span className="font-medium text-text">{toDelete?.emoji} {toDelete?.name}</span> and
           all of its projects and tasks? This cannot be undone.
         </p>

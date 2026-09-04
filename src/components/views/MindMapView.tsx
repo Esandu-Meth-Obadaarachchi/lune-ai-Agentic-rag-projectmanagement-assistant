@@ -79,14 +79,14 @@ function MapNode({ data }: NodeProps<MapNodeData>) {
   const meta = data.status ? statusMeta(data.status) : null;
   return (
     <div className="group relative">
-      {!isProject && <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-border-strong" />}
+      {!isProject && <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-hairline/[0.08]-strong" />}
       <div
         onClick={() => data.task && data.onOpen?.(data.task)}
         className={cn(
-          "flex items-center gap-2 rounded-xl border px-3 py-2.5 shadow-card transition-all",
+          "flex items-center gap-2 rounded-xl border px-3 py-2.5 shadow-e1 transition-all",
           isProject
             ? "border-accent/40 bg-accent/10 text-text"
-            : "cursor-pointer border-border bg-surface hover:border-border-strong hover:shadow-pop",
+            : "cursor-pointer border-hairline/[0.08] bg-surface hover:border-hairline/20 hover:shadow-e3",
           data.status === "done" && "opacity-60"
         )}
         style={{ width: NODE_W }}
@@ -101,7 +101,7 @@ function MapNode({ data }: NodeProps<MapNodeData>) {
         )}
         <span
           className={cn(
-            "flex-1 truncate text-[13px]",
+            "flex-1 truncate text-sm",
             isProject ? "font-semibold" : "text-text",
             data.status === "done" && "line-through"
           )}
@@ -120,12 +120,12 @@ function MapNode({ data }: NodeProps<MapNodeData>) {
           data.onAdd?.(isProject ? null : data.task!.id);
         }}
         title={isProject ? "Add task" : "Add subtask"}
-        className="absolute -right-2.5 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full border border-border bg-surface text-text-faint opacity-0 shadow-card transition-all hover:border-accent/40 hover:text-accent group-hover:opacity-100"
+        className="absolute -right-2.5 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full border border-hairline/[0.08] bg-surface text-text-faint opacity-0 shadow-e1 transition-all hover:border-accent/40 hover:text-accent group-hover:opacity-100"
       >
         <Plus className="h-3 w-3" />
       </button>
 
-      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !border-0 !bg-border-strong" />
+      <Handle type="source" position={Position.Right} className="!h-1.5 !w-1.5 !border-0 !bg-hairline/[0.08]-strong" />
     </div>
   );
 }
@@ -245,7 +245,7 @@ function MindMap({ onOpenTask }: { onOpenTask: (t: Task) => void }) {
         className="mindmap"
       >
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgb(var(--border))" />
-        <Controls showInteractive={false} className="!border-border !bg-surface !shadow-card" />
+        <Controls showInteractive={false} className="!border-hairline/[0.08] !bg-surface !shadow-e1" />
       </ReactFlow>
 
       <Modal

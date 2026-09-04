@@ -153,10 +153,10 @@ export function PageView({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* breadcrumb / actions */}
-      <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+      <header className="flex items-center gap-2 border-b border-hairline/[0.08] px-4 py-2.5">
         <button
           onClick={() => router.back()}
-          className="grid h-7 w-7 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text"
+          className="grid h-7 w-7 place-items-center rounded-md text-text-muted hover:bg-hairline/[0.06] hover:text-text"
           title="Back"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -194,15 +194,15 @@ export function PageView({ id }: { id: string }) {
           {/* icon + title */}
           <div className="mb-4 flex items-start gap-3">
             <div className="group relative">
-              <button className="grid h-11 w-11 place-items-center rounded-lg text-3xl hover:bg-surface-2">
+              <button className="grid h-11 w-11 place-items-center rounded-lg text-3xl hover:bg-hairline/[0.06]">
                 {icon || "📄"}
               </button>
-              <div className="absolute left-0 top-12 z-10 hidden w-[184px] grid-cols-6 gap-1 rounded-lg border border-border bg-surface p-1.5 shadow-pop group-hover:grid">
+              <div className="absolute left-0 top-12 z-10 hidden w-[184px] grid-cols-6 gap-1 rounded-lg border border-hairline/[0.08] bg-surface p-1.5 shadow-e3 group-hover:grid">
                 {EMOJI.map((e) => (
                   <button
                     key={e}
                     onClick={() => setPageIcon(e)}
-                    className="grid h-7 w-7 place-items-center rounded text-lg hover:bg-surface-2"
+                    className="grid h-7 w-7 place-items-center rounded text-lg hover:bg-hairline/[0.06]"
                   >
                     {e}
                   </button>
@@ -227,14 +227,14 @@ export function PageView({ id }: { id: string }) {
           />
 
           {/* Sub-pages — clickable links to nested pages (Notion-style). */}
-          <div className="mt-8 border-t border-border pt-4">
+          <div className="mt-8 border-t border-hairline/[0.08] pt-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-2xs font-semibold uppercase tracking-wider text-text-faint">
                 Sub-pages{children.length > 0 && ` · ${children.length}`}
               </span>
               <button
                 onClick={addSubpage}
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-faint hover:bg-surface-2 hover:text-text"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-faint hover:bg-hairline/[0.06] hover:text-text"
               >
                 <Plus className="h-3.5 w-3.5" /> Add
               </button>
@@ -242,7 +242,7 @@ export function PageView({ id }: { id: string }) {
             {children.length === 0 ? (
               <button
                 onClick={addSubpage}
-                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-left text-[13px] text-text-faint transition-colors hover:border-border-strong hover:text-text-muted"
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-hairline/[0.08] px-3 py-2.5 text-left text-sm text-text-faint transition-colors hover:border-hairline/20 hover:text-text-muted"
               >
                 <Plus className="h-4 w-4" /> Add a sub-page
               </button>
@@ -252,10 +252,10 @@ export function PageView({ id }: { id: string }) {
                   <button
                     key={c.id}
                     onClick={() => router.push(`/pages/${c.id}`)}
-                    className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2/40 px-3 py-2.5 text-left transition-colors hover:border-border-strong hover:bg-surface-2"
+                    className="flex w-full items-center gap-2.5 rounded-lg border border-hairline/[0.08] bg-surface-2/40 px-3 py-2.5 text-left transition-colors hover:border-hairline/20 hover:bg-hairline/[0.06]"
                   >
                     <span className="text-base leading-none">{c.icon || "📄"}</span>
-                    <span className="flex-1 truncate text-[13.5px] font-medium text-text">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">
                       {c.title || "Untitled"}
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-text-faint" />

@@ -45,7 +45,7 @@ export function DayDetail({
     <Modal open onClose={onClose} title={format(d, "EEEE d MMMM")} width={420}>
       <div className="max-h-[60vh] space-y-1 overflow-y-auto pr-0.5">
         {sortedTasks.length === 0 && sortedEvents.length === 0 && (
-          <p className="py-6 text-center text-[13px] text-text-faint">Nothing scheduled.</p>
+          <p className="py-6 text-center text-sm text-text-faint">Nothing scheduled.</p>
         )}
 
         {sortedTasks.map((t) => {
@@ -68,7 +68,7 @@ export function DayDetail({
                 <span className="mono w-11 shrink-0 text-2xs text-text-faint">
                   {t.dueTime ?? "all-day"}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-text-muted">{t.title}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-text-muted">{t.title}</span>
                 <span className="shrink-0 text-2xs text-text-faint">{foreign}</span>
               </div>
             );
@@ -76,7 +76,7 @@ export function DayDetail({
           return (
             <div
               key={t.id}
-              className="group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-2"
+              className="group flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-hairline/[0.06]"
             >
               <StatusControl status={t.status} onChange={(s) => onSetStatus(t.id, s)} size={15} />
               <span className="mono w-11 shrink-0 text-2xs text-text-faint">
@@ -88,7 +88,7 @@ export function DayDetail({
                   onClose();
                 }}
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-2 text-left text-[13px]",
+                  "flex min-w-0 flex-1 items-center gap-2 text-left text-sm",
                   t.status === "done" ? "text-text-faint line-through" : "text-text"
                 )}
               >
@@ -111,13 +111,13 @@ export function DayDetail({
               <span className="h-2 w-2 rounded-full bg-info" />
             </span>
             <span className="mono w-11 shrink-0 text-2xs text-text-faint">{e.time ?? "all-day"}</span>
-            <span className="min-w-0 flex-1 truncate text-[13px] text-text-muted">{e.title}</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-text-muted">{e.title}</span>
             <span className="shrink-0 text-2xs text-info">Google</span>
           </div>
         ))}
       </div>
 
-      <div className="mt-2 border-t border-border pt-1.5">
+      <div className="mt-2 border-t border-hairline/[0.08] pt-1.5">
         {adding ? (
           <QuickAdd
             autoFocus
@@ -128,7 +128,7 @@ export function DayDetail({
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className="w-full rounded-md px-2 py-1.5 text-left text-[13px] text-text-faint hover:bg-surface-2 hover:text-text"
+            className="w-full rounded-md px-2 py-1.5 text-left text-sm text-text-faint hover:bg-hairline/[0.06] hover:text-text"
           >
             + Add task on this day
           </button>

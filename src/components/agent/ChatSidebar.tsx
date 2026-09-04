@@ -31,7 +31,7 @@ export function ChatSidebar({ chats, currentChatId, onSelect, onNew, onDelete, o
       )}
       <aside
         className={cn(
-          "flex w-[248px] shrink-0 flex-col border-r border-border bg-surface/40",
+          "flex w-[248px] shrink-0 flex-col border-r border-hairline/[0.08] bg-surface/40",
           // Mobile: fixed slide-in drawer with an opaque background.
           "fixed inset-y-0 left-0 z-50 h-[100dvh] -translate-x-full transition-transform duration-300 ease-out max-lg:bg-bg",
           // Desktop: static rail, always visible.
@@ -45,7 +45,7 @@ export function ChatSidebar({ chats, currentChatId, onSelect, onNew, onDelete, o
               onNew();
               onClose?.();
             }}
-            className="flex w-full items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] text-text-muted transition-colors hover:border-border-strong hover:text-text"
+            className="flex w-full items-center gap-2 rounded-md border border-hairline/[0.08] bg-surface-2 px-2.5 py-1.5 text-sm text-text-muted transition-colors hover:border-hairline/20 hover:text-text"
           >
             <Plus className="h-3.5 w-3.5" />
             New chat
@@ -65,10 +65,10 @@ export function ChatSidebar({ chats, currentChatId, onSelect, onNew, onDelete, o
                       onClose?.();
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-left text-[13px] transition-colors",
+                      "flex w-full items-center gap-2 rounded-md py-1.5 pl-2.5 pr-8 text-left text-sm transition-colors",
                       c.id === currentChatId
                         ? "bg-surface-3 text-text"
-                        : "text-text-muted hover:bg-surface-2 hover:text-text"
+                        : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
                     )}
                   >
                     <MessageSquare className="h-3.5 w-3.5 shrink-0 text-text-faint" />

@@ -110,11 +110,11 @@ export function BulkBar({
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[120] flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-1 overflow-x-auto rounded-lg border border-border-strong bg-surface px-2 py-1.5 shadow-pop animate-slide-up [scrollbar-width:none] sm:w-auto [&::-webkit-scrollbar]:hidden">
+      <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-1 overflow-x-auto rounded-lg border border-hairline/20 bg-surface px-2 py-1.5 shadow-e3 animate-slide-up [scrollbar-width:none] sm:w-auto [&::-webkit-scrollbar]:hidden">
         <span className="mono shrink-0 whitespace-nowrap px-1.5 text-2xs text-text">
           {n} selected
         </span>
-        <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-hairline/[0.08]" />
 
         <Menu
           label="Status"
@@ -208,12 +208,12 @@ export function BulkBar({
           <span className="hidden sm:inline">Delete</span>
         </button>
 
-        <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-hairline/[0.08]" />
         <button
           onClick={selection.clear}
           aria-label="Clear selection"
           title="Clear selection (Esc)"
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -235,7 +235,7 @@ function Menu({
     <Dropdown
       width={200}
       trigger={() => (
-        <span className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text">
+        <span className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-hairline/[0.06] hover:text-text">
           {icon}
           <span className="hidden sm:inline">{label}</span>
         </span>
@@ -250,7 +250,7 @@ function Menu({
                 close();
                 i.run();
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-text-muted transition-colors hover:bg-hairline/[0.06] hover:text-text"
             >
               {i.node}
             </button>

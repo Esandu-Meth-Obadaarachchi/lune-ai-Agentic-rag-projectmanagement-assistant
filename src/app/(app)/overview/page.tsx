@@ -12,6 +12,7 @@ import type { Project, Task } from "@/lib/types";
 import { DueDateChip } from "@/components/ui/DueDateChip";
 import { PriorityDot } from "@/components/ui/PriorityIndicator";
 import { Logo } from "@/components/ui/Logo";
+import { StatusBar } from "@/components/ui/StatusBar";
 import { cn } from "@/lib/utils";
 
 export default function OverviewPage() {
@@ -56,24 +57,26 @@ export default function OverviewPage() {
   const attention = [...digest.overdue, ...digest.dueToday, ...digest.blocked];
 
   return (
-    <div className="h-full overflow-y-auto">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-4">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-xl">
+    <div className="h-full overflow-y-auto overflow-x-hidden">
+      <header className="flex items-center gap-3 border-b border-hairline/[0.08] px-5 py-4">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-hairline/[0.06] text-xl shadow-[inset_0_1px_0_rgb(var(--hairline)/0.08)]">
           {currentWorkspace.emoji}
         </span>
         <div className="min-w-0">
-          <h1 className="truncate text-[17px] font-semibold tracking-tight">{currentWorkspace.name}</h1>
-          <div className="text-xs text-text-muted">Workspace overview</div>
+          <h1 className="t-title truncate text-xl">{currentWorkspace.name}</h1>
+          <p className="mt-0.5 text-2xs text-text-faint">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · {workspaceTasks.length} tasks
+          </p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <div className="hidden items-center gap-1.5 sm:flex">
+        <div className="ml-auto flex items-center gap-4">
+          <div className="hidden items-center gap-4 sm:flex">
             <Stat label="open" value={open} />
-            {digest.overdue.length > 0 && <Stat label="overdue" value={digest.overdue.length} tone="danger" />}
+            <Stat label="overdue" value={digest.overdue.length} tone="danger" />
             <Stat label="done" value={done} />
           </div>
           <button
             onClick={() => setSharing(true)}
-            className="ml-1 inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 text-2xs font-medium text-text-muted transition-colors hover:border-border-strong hover:text-text"
+            className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-hairline/[0.12] px-2.5 text-2xs font-medium text-text-muted shadow-[inset_0_1px_0_rgb(var(--hairline)/0.05)] transition-colors hover:border-hairline/20 hover:bg-hairline/[0.05] hover:text-text"
           >
             <Users className="h-3.5 w-3.5" /> Share
           </button>
@@ -83,26 +86,34 @@ export default function OverviewPage() {
       <ShareDialog workspace={currentWorkspace} open={sharing} onClose={() => setSharing(false)} />
 
       <div className="mx-auto max-w-5xl space-y-7 px-5 py-6">
-        {/* status summary */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {STATUS_ORDER.map((s) => {
-            const meta = statusMeta(s);
-            const count = workspaceTasks.filter((t) => t.status === s).length;
-            return (
-              <div key={s} className="card flex items-center gap-2.5 p-3">
-                <span className={cn("h-2.5 w-2.5 rounded-full", meta.dot)} />
-                <div>
-                  <div className="mono text-lg font-semibold leading-none">{count}</div>
-                  <div className="mt-0.5 text-2xs text-text-muted">{meta.label}</div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Where the whole workspace stands, as one band. Four boxed numbers
+            said the same thing but made you assemble the picture yourself. */}
+        <div className="card p-4">
+          <StatusBar tasks={workspaceTasks} height={8} />
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+            {/* Legend follows the bar, left to right, so the two read as one
+                object rather than two lists that happen to share colours. */}
+            {(["done", "in_progress", "blocked", "todo"] as const).map((sid) => {
+              const meta = statusMeta(sid);
+              const count = workspaceTasks.filter((t) => t.status === sid).length;
+              const pct = workspaceTasks.length
+                ? Math.round((count / workspaceTasks.length) * 100)
+                : 0;
+              return (
+                <span key={sid} className="flex items-baseline gap-2">
+                  <span className={cn("h-2 w-2 shrink-0 translate-y-[-1px] rounded-full", meta.dot)} />
+                  <span className="mono text-base font-semibold tabular-nums text-text">{count}</span>
+                  <span className="text-2xs text-text-muted">{meta.label}</span>
+                  <span className="mono text-2xs text-text-faint">{pct}%</span>
+                </span>
+              );
+            })}
+          </div>
         </div>
 
         {/* projects */}
         <section>
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-faint">
+          <h2 className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.09em] text-text-faint">
             <LayoutGrid className="h-3.5 w-3.5" /> Projects
           </h2>
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,28 +130,28 @@ export default function OverviewPage() {
 
         {/* needs attention */}
         <section>
-          <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-faint">
+          <h2 className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.09em] text-text-faint">
             <AlertTriangle className="h-3.5 w-3.5" /> Needs attention
           </h2>
           {attention.length === 0 ? (
-            <div className="card p-4 text-[13px] text-text-muted">
+            <div className="card p-4 text-sm text-text-muted">
               Nothing overdue, due today or blocked across this workspace.
             </div>
           ) : (
-            <div className="card divide-y divide-border/60 overflow-hidden">
+            <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
               {attention.slice(0, 12).map((t) => (
                 <button
                   key={t.id}
                   onClick={() => openTask(t)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-surface-2"
+                  className="group flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-hairline/[0.05]"
                 >
                   <PriorityDot priority={t.priority} />
-                  <span className="flex-1 truncate text-[13px] text-text">{t.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-text">{t.title}</span>
                   <span className="hidden shrink-0 text-2xs text-text-faint sm:inline">
                     {projects.find((p) => p.id === t.projectId)?.name}
                   </span>
                   {t.status === "blocked" ? (
-                    <span className="rounded border border-blocked/25 bg-blocked/10 px-1.5 py-0.5 text-2xs text-blocked">
+                    <span className="mono rounded bg-blocked/[0.14] px-1.5 py-0.5 text-2xs font-semibold text-blocked">
                       blocked
                     </span>
                   ) : (
@@ -161,31 +172,36 @@ function ProjectCard({ project, tasks, onOpen }: { project: Project; tasks: Task
   const done = tasks.filter((t) => t.status === "done").length;
   const open = total - done;
   const overdue = tasks.filter((t) => t.status !== "done" && dueState(t.dueDate, t.status) === "overdue").length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
 
   return (
-    <button
-      onClick={onOpen}
-      className="card lift p-3.5 text-left hover:border-border-strong hover:shadow-card"
-    >
+    <button onClick={onOpen} className="card card-hover press p-3 text-left">
       <div className="flex items-center gap-2">
         {project.isInbox ? (
-          <InboxIcon className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+          <InboxIcon className="h-3.5 w-3.5 shrink-0 text-text-faint" />
         ) : (
-          <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: project.color }} />
+          <span
+            className="h-2 w-2 shrink-0 rounded-full ring-1 ring-inset ring-hairline/20"
+            style={{ background: project.color }}
+          />
         )}
-        <span className="truncate text-[13.5px] font-medium text-text">{project.name}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{project.name}</span>
+        <span
+          className={cn(
+            "mono shrink-0 text-base tabular-nums",
+            open > 0 ? "font-semibold text-text" : "text-text-faint"
+          )}
+        >
+          {open}
+        </span>
       </div>
 
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-3">
-        <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-      </div>
+      <StatusBar tasks={tasks} className="mt-2.5" />
 
-      <div className="mt-2 flex items-center gap-3 text-2xs text-text-muted">
-        <span><b className="mono text-text">{open}</b> open</span>
-        <span><b className="mono text-text">{done}</b> done</span>
+      <div className="mt-2 flex items-center gap-3 text-2xs text-text-faint">
+        <span>{open} open</span>
+        <span>{done} done</span>
         {overdue > 0 && (
-          <span className="ml-auto flex items-center gap-1 text-danger">
+          <span className="ml-auto flex items-center gap-1 font-medium text-danger">
             <CalendarClock className="h-3 w-3" /> {overdue} overdue
           </span>
         )}
@@ -196,14 +212,16 @@ function ProjectCard({ project, tasks, onOpen }: { project: Project; tasks: Task
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: "danger" }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted",
-        tone === "danger" && "border-danger/25 bg-danger/10 text-danger"
-      )}
-    >
-      <span className="mono font-semibold text-text">{value}</span>
-      {label}
+    <span className="flex items-baseline gap-1.5">
+      <span
+        className={cn(
+          "mono text-base font-semibold tabular-nums",
+          tone === "danger" && value > 0 ? "text-danger" : "text-text"
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-2xs text-text-faint">{label}</span>
     </span>
   );
 }

@@ -112,14 +112,14 @@ export function TaskDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40 animate-fade-in md:hidden" onClick={onClose} />
+      <div className="fixed inset-0 z-40 animate-fade-in bg-bg-deep/65 backdrop-blur-[2px] md:hidden" onClick={onClose} />
       {/* A phone gets a full-height sheet, not a 420px panel squeezed against
           the edge. From md up it is the side drawer it always was. */}
       <aside
         data-overlay-open
-        className="fixed inset-0 z-50 flex flex-col border-border bg-surface shadow-pop animate-slide-in md:absolute md:inset-y-0 md:left-auto md:right-0 md:w-full md:max-w-[420px] md:border-l"
+        className="glass-panel fixed inset-0 z-50 flex animate-slide-in flex-col rounded-none md:absolute md:inset-y-2.5 md:left-auto md:right-2.5 md:w-full md:max-w-[420px] md:rounded-xl"
       >
-        <header className="flex items-center justify-between border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
+        <header className="flex items-center justify-between border-b border-hairline/[0.08] px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3">
           <div className="flex items-center gap-2 text-xs text-text-muted">
             <span className={meta.color}>●</span>
             {meta.label}
@@ -142,7 +142,7 @@ export function TaskDrawer({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text md:h-7 md:w-7"
+            className="grid h-9 w-9 place-items-center rounded-md text-text-muted hover:bg-hairline/[0.06] hover:text-text md:h-7 md:w-7"
           >
             <X className="h-4 w-4" />
           </button>
@@ -152,7 +152,7 @@ export function TaskDrawer({
           {/* Where this task actually lives. Worth stating whenever the drawer
               was opened from a view that spans projects. */}
           {foreign && project && (
-            <div className="mb-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-1 text-2xs text-text-muted">
+            <div className="mb-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-2xs text-text-muted">
               <span
                 className="h-2 w-2 shrink-0 rounded-[3px]"
                 style={{ background: project.color }}
@@ -238,7 +238,7 @@ export function TaskDrawer({
               onBlur={() => notes !== (live.notes ?? "") && actions.setNotes(live.id, notes)}
               placeholder="Add detail, links, acceptance criteria…"
               rows={4}
-              className="w-full resize-none rounded-md border border-border bg-surface-2 px-3 py-2 text-[13px] text-text outline-none placeholder:text-text-faint focus:border-accent/50"
+              className="w-full resize-none rounded-md border border-hairline/[0.08] bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-text-faint focus:border-accent/50"
             />
           </div>
 
@@ -251,13 +251,13 @@ export function TaskDrawer({
             </div>
             <div className="space-y-px">
               {subtasks.map((s) => (
-                <div key={s.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-surface-2">
+                <div key={s.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-hairline/[0.06]">
                   <StatusControl status={s.status} onChange={(st) => actions.setStatus(s.id, st)} size={14} />
                   <button
                     onClick={() => onOpenTask?.(s)}
                     disabled={!onOpenTask}
                     className={cn(
-                      "flex-1 truncate text-left text-[13px] disabled:cursor-default",
+                      "flex-1 truncate text-left text-sm disabled:cursor-default",
                       s.status === "done" ? "text-text-faint line-through" : "text-text"
                     )}
                     title={onOpenTask ? `Open ${s.title}` : s.title}
@@ -288,7 +288,7 @@ export function TaskDrawer({
           </div>
 
           {/* comments + system events */}
-          <div className="mt-5 border-t border-border pt-4">
+          <div className="mt-5 border-t border-hairline/[0.08] pt-4">
             <TaskTimeline task={live} />
           </div>
 
@@ -309,10 +309,10 @@ export function TaskDrawer({
             ) : (
               <div className="space-y-1">
                 {related.map((d) => (
-                  <div key={d.id} className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5">
+                  <div key={d.id} className="rounded-md border border-hairline/[0.08] bg-surface-2 px-2.5 py-1.5">
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-                      <span className="flex-1 truncate text-[13px] text-text">{d.source}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-text">{d.source}</span>
                       <span className="mono text-2xs text-text-faint">{d.score.toFixed(2)}</span>
                     </div>
                     <p className="mt-0.5 line-clamp-2 pl-[22px] text-2xs leading-relaxed text-text-muted">
@@ -332,7 +332,7 @@ export function TaskDrawer({
               </span>
               <div className="space-y-1">
                 {live.linkedDocs.map((d) => (
-                  <div key={d.id} className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[13px]">
+                  <div key={d.id} className="flex items-center gap-2 rounded-md border border-hairline/[0.08] bg-surface-2 px-2.5 py-1.5 text-sm">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
                     <span className="truncate text-text">{d.title}</span>
                   </div>
@@ -342,7 +342,7 @@ export function TaskDrawer({
           )}
         </div>
 
-        <footer className="flex items-center justify-between border-t border-border px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] md:pb-2.5">
+        <footer className="flex items-center justify-between border-t border-hairline/[0.08] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] md:pb-2.5">
           <span className="mono text-2xs text-text-faint">
             updated {relativeTime(live.updatedAt)}
           </span>
@@ -397,7 +397,7 @@ function ProjectMover({ task, current }: { task: Task; current: Project | null }
     <Dropdown
       width={240}
       trigger={() => (
-        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-text transition-colors hover:bg-surface-2">
+        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-text transition-colors hover:bg-hairline/[0.06]">
           {current && (
             <span
               className="h-2 w-2 shrink-0 rounded-[3px]"
@@ -422,7 +422,7 @@ function ProjectMover({ task, current }: { task: Task; current: Project | null }
                   close();
                   void move(p);
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-text-muted transition-colors hover:bg-hairline/[0.06] hover:text-text"
               >
                 <span className="h-2 w-2 shrink-0 rounded-[3px]" style={{ background: p.color }} />
                 <span className="truncate">{p.isInbox ? "Inbox" : p.name}</span>
@@ -460,7 +460,7 @@ function EstimatePicker({
           className={
             value === p
               ? "mono grid h-6 w-6 place-items-center rounded bg-accent text-2xs text-accent-fg"
-              : "mono grid h-6 w-6 place-items-center rounded text-2xs text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+              : "mono grid h-6 w-6 place-items-center rounded text-2xs text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text"
           }
         >
           {p}
@@ -471,10 +471,13 @@ function EstimatePicker({
 }
 
 function Prop({ label, children }: { label: string; children: React.ReactNode }) {
+  // Stacking label over value on a phone doubled the height of every property,
+  // so seven fields pushed the notes and subtasks off the screen. The label
+  // column just gets narrower instead; the row stays a row at every width.
   return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-      <span className="shrink-0 text-xs text-text-muted sm:w-20">{label}</span>
-      <div className="flex min-h-[28px] flex-1 flex-wrap items-center">{children}</div>
+    <div className="flex items-center gap-3">
+      <span className="w-[76px] shrink-0 text-xs text-text-muted sm:w-20">{label}</span>
+      <div className="flex min-h-[32px] min-w-0 flex-1 flex-wrap items-center">{children}</div>
     </div>
   );
 }

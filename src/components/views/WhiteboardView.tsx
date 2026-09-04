@@ -94,7 +94,7 @@ export function WhiteboardView() {
         </div>
       )}
       {status !== "idle" && (
-        <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-md border border-border bg-surface/90 px-2 py-1 text-2xs text-text-faint backdrop-blur">
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-md border border-hairline/[0.08] bg-surface/90 px-2 py-1 text-2xs text-text-faint backdrop-blur">
           {status === "saving" ? "Saving…" : "Saved"}
         </div>
       )}

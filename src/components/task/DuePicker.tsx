@@ -56,7 +56,7 @@ export function DuePicker({
           <DueDateChip date={value} time={time} status={status} />
         ) : placeholder ? (
           <span
-            className="grid h-6 w-6 place-items-center rounded-md text-text-faint hover:bg-surface-2 hover:text-text"
+            className="grid h-6 w-6 place-items-center rounded-md text-text-faint hover:bg-hairline/[0.06] hover:text-text"
             title="Set due date"
           >
             <CalendarClock className="h-3.5 w-3.5" />
@@ -123,7 +123,7 @@ function Panel({
           <button
             key={label}
             onClick={() => quick(off)}
-            className="rounded-md px-1 py-1 text-2xs text-text-muted hover:bg-surface-2 hover:text-text"
+            className="rounded-md px-1 py-1 text-2xs text-text-muted hover:bg-hairline/[0.06] hover:text-text"
           >
             {label}
           </button>
@@ -134,14 +134,14 @@ function Panel({
       <div className="mb-1 flex items-center justify-between px-1">
         <button
           onClick={() => setMonth((m) => addMonths(m, -1))}
-          className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
+          className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-hairline/[0.06] hover:text-text"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
-        <span className="text-[13px] font-medium text-text">{format(month, "MMMM yyyy")}</span>
+        <span className="text-sm font-medium text-text">{format(month, "MMMM yyyy")}</span>
         <button
           onClick={() => setMonth((m) => addMonths(m, 1))}
-          className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
+          className="grid h-6 w-6 place-items-center rounded text-text-faint hover:bg-hairline/[0.06] hover:text-text"
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
@@ -165,8 +165,8 @@ function Panel({
                 isSel
                   ? "bg-accent font-semibold text-accent-fg"
                   : outside
-                    ? "text-text-faint hover:bg-surface-2"
-                    : "text-text hover:bg-surface-2",
+                    ? "text-text-faint hover:bg-hairline/[0.06]"
+                    : "text-text hover:bg-hairline/[0.06]",
                 !isSel && isToday(day) && "ring-1 ring-inset ring-accent/50"
               )}
             >
@@ -178,7 +178,7 @@ function Panel({
 
       {onTimeChange && (
         <>
-          <div className="my-1.5 h-px bg-border" />
+          <div className="my-1.5 h-px bg-hairline/[0.08]" />
           <div className="flex items-center gap-1.5 px-0.5">
             <label className="flex-1">
               <span className="mb-0.5 block text-2xs text-text-faint">Start</span>
@@ -187,7 +187,7 @@ function Panel({
                 value={time ?? ""}
                 disabled={!value}
                 onChange={(e) => onTimeChange(e.target.value || null)}
-                className="w-full rounded-md border border-border bg-surface-2 px-1.5 py-1 text-[13px] text-text outline-none focus:border-accent/60 disabled:opacity-40"
+                className="w-full rounded-md border border-hairline/[0.08] bg-surface-2 px-1.5 py-1 text-sm text-text outline-none focus:border-accent/60 disabled:opacity-40"
               />
             </label>
             <label className="flex-1">
@@ -198,8 +198,8 @@ function Panel({
                 disabled={!value || !time || !onEndTimeChange}
                 onChange={(e) => onEndTimeChange?.(e.target.value || null)}
                 className={cn(
-                  "w-full rounded-md border bg-surface-2 px-1.5 py-1 text-[13px] text-text outline-none focus:border-accent/60 disabled:opacity-40",
-                  endInvalid ? "border-danger/60" : "border-border"
+                  "w-full rounded-md border bg-surface-2 px-1.5 py-1 text-sm text-text outline-none focus:border-accent/60 disabled:opacity-40",
+                  endInvalid ? "border-danger/60" : "border-hairline/[0.08]"
                 )}
               />
             </label>
@@ -223,7 +223,7 @@ function Panel({
             onChange(null);
             close();
           }}
-          className="mt-1.5 w-full rounded-md px-2 py-1.5 text-left text-[13px] text-danger hover:bg-danger/10"
+          className="mt-1.5 w-full rounded-md px-2 py-1.5 text-left text-sm text-danger hover:bg-danger/10"
         >
           Clear due date
         </button>

@@ -119,12 +119,12 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
             <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-faint">
               Members
             </h3>
-            <div className="card divide-y divide-border/60 overflow-hidden">
+            <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
               {state?.members.map((m) => (
                 <div key={m.uid} className="flex items-center gap-2.5 px-3 py-2">
                   <Avatar name={m.name} src={m.photoURL} size={28} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-text">{m.name}</div>
+                    <div className="truncate text-sm font-medium text-text">{m.name}</div>
                     <div className="truncate text-2xs text-text-faint">{m.email}</div>
                   </div>
                   {m.role !== "owner" && (
@@ -135,7 +135,7 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
                       align="right"
                       width={150}
                       trigger={() => (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2 py-0.5 text-2xs text-text-muted hover:text-text">
+                        <span className="inline-flex items-center gap-1 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-0.5 text-2xs text-text-muted hover:text-text">
                           {roleLabel(m.role)}
                         </span>
                       )}
@@ -154,7 +154,7 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
                               {r.label}
                             </MenuItem>
                           ))}
-                          <div className="my-1 h-px bg-border" />
+                          <div className="my-1 h-px bg-hairline/[0.08]" />
                           <MenuItem
                             danger
                             icon={<Trash2 className="h-4 w-4" />}
@@ -169,7 +169,7 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
                       )}
                     </Dropdown>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2 py-0.5 text-2xs text-text-muted">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-0.5 text-2xs text-text-muted">
                       {m.role === "owner" && <Shield className="h-3 w-3 text-accent" />}
                       {roleLabel(m.role)}
                     </span>
@@ -188,21 +188,21 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
           {state && state.invites.length > 0 && (
             <div>
               <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-faint">Pending</h3>
-              <div className="card divide-y divide-border/60 overflow-hidden">
+              <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
                 {state.invites.map((inv) => (
                   <div key={inv.id} className="flex items-center gap-2.5 px-3 py-2">
                     <span className="grid h-7 w-7 place-items-center rounded-full bg-surface-2 text-text-faint">
                       <Mail className="h-3.5 w-3.5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] text-text">{inv.email}</div>
+                      <div className="truncate text-sm text-text">{inv.email}</div>
                       <div className="truncate text-2xs text-text-faint">
                         {roleLabel(inv.role)} · {scopeSummary(inv.scope)}
                       </div>
                     </div>
                     <button
                       onClick={() => copyInvite(inv.email)}
-                      className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2 py-1 text-2xs text-text-muted hover:text-text"
+                      className="inline-flex items-center gap-1 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-2xs text-text-muted hover:text-text"
                       title="Copy invite message to send"
                     >
                       {copied === inv.email ? (
@@ -250,7 +250,7 @@ export function ShareDialog({ workspace, open, onClose }: { workspace: Workspace
                     align="right"
                     width={220}
                     trigger={() => (
-                      <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-3 text-[13px] text-text-muted hover:text-text">
+                      <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-hairline/[0.08] bg-surface-2 px-3 text-sm text-text-muted hover:text-text">
                         {roleLabel(role)}
                       </span>
                     )}
@@ -321,13 +321,13 @@ function ScopeSelector({
     onChange([...set]);
   };
   return (
-    <div className="rounded-lg border border-border bg-surface-2/50 p-2.5">
+    <div className="rounded-lg border border-hairline/[0.08] bg-surface-2/50 p-2.5">
       <div className="mb-2 flex gap-1">
         <button
           onClick={() => onChange(null)}
           className={cn(
             "flex-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors",
-            !specific ? "bg-accent/15 text-accent" : "text-text-muted hover:bg-surface-2"
+            !specific ? "bg-accent/15 text-accent" : "text-text-muted hover:bg-hairline/[0.06]"
           )}
         >
           Whole workspace
@@ -336,7 +336,7 @@ function ScopeSelector({
           onClick={() => onChange(value ?? [])}
           className={cn(
             "flex-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors",
-            specific ? "bg-accent/15 text-accent" : "text-text-muted hover:bg-surface-2"
+            specific ? "bg-accent/15 text-accent" : "text-text-muted hover:bg-hairline/[0.06]"
           )}
         >
           Specific projects
@@ -351,12 +351,12 @@ function ScopeSelector({
               <button
                 key={p.id}
                 onClick={() => toggle(p.id)}
-                className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-[13px] text-text hover:bg-surface-2"
+                className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm text-text hover:bg-hairline/[0.06]"
               >
                 <span
                   className={cn(
                     "grid h-4 w-4 place-items-center rounded border",
-                    on ? "border-accent bg-accent text-white" : "border-border"
+                    on ? "border-accent bg-accent text-white" : "border-hairline/[0.08]"
                   )}
                 >
                   {on && <Check className="h-3 w-3" />}
@@ -394,7 +394,7 @@ function MemberScopes({
   return (
     <div>
       <h3 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-text-faint">Project access</h3>
-      <div className="card divide-y divide-border/60 overflow-hidden">
+      <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
         {editable.map((m) => (
           <div key={m.uid} className="px-3 py-2">
             <button
@@ -404,7 +404,7 @@ function MemberScopes({
               }}
               className="flex w-full items-center gap-2 text-left"
             >
-              <span className="min-w-0 flex-1 truncate text-[13px] text-text">{m.name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-text">{m.name}</span>
               <span className="text-2xs text-text-faint">{scopeSummary(m.scope)}</span>
             </button>
             {editing === m.uid && (

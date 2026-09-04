@@ -23,7 +23,7 @@ export function PrioritySelect({
     <Dropdown
       width={160}
       trigger={() => (
-        <span className="grid h-6 w-6 place-items-center rounded-md hover:bg-surface-2" title="Priority">
+        <span className="grid h-6 w-6 place-items-center rounded-md hover:bg-hairline/[0.06]" title="Priority">
           <PriorityIndicator priority={value} />
         </span>
       )}
@@ -96,7 +96,7 @@ export function AssigneePicker({
           ))}
           {value.length > 0 && (
             <>
-              <div className="my-1 h-px bg-border" />
+              <div className="my-1 h-px bg-hairline/[0.08]" />
               <MenuItem
                 onClick={() => {
                   onChange([]);
@@ -250,7 +250,7 @@ export function TagEditor({
       <Dropdown
         width={220}
         trigger={() => (
-          <span className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-2xs text-text-faint hover:border-border-strong hover:text-text">
+          <span className="inline-flex items-center gap-0.5 rounded border border-dashed border-hairline/[0.08] px-1.5 py-0.5 text-2xs text-text-faint hover:border-hairline/20 hover:text-text">
             <Plus className="h-3 w-3" /> Tag
           </span>
         )}
@@ -266,7 +266,7 @@ export function TagEditor({
                   if (e.key === "Enter") create();
                 }}
                 placeholder="Find or create a tag"
-                className="w-full rounded border border-border bg-surface-2 px-2 py-1 text-2xs text-text outline-none placeholder:text-text-faint focus:border-border-strong"
+                className="w-full rounded border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-2xs text-text outline-none placeholder:text-text-faint focus:border-hairline/20"
               />
             </div>
             <div className="max-h-56 overflow-y-auto">
@@ -297,7 +297,7 @@ export function TagEditor({
             </div>
             {canCreate && (
               <>
-                <div className="my-1 h-px bg-border" />
+                <div className="my-1 h-px bg-hairline/[0.08]" />
                 <MenuItem icon={<Plus className="h-4 w-4" />} onClick={create}>
                   Create “{query}”
                 </MenuItem>

@@ -22,7 +22,7 @@ import {
   watchWorkspaces,
 } from "./firestore";
 
-interface WorkspaceState {
+export interface WorkspaceState {
   workspaces: Workspace[];
   projects: Project[];
   /** Every project the user can see, across all workspaces. Needed to act on a
@@ -48,7 +48,10 @@ interface WorkspaceState {
   openWorkspaceProject: (workspaceId: string, projectId: string) => void;
 }
 
-const Ctx = createContext<WorkspaceState | null>(null);
+/** Exported so the dev-only /preview harness can mount the shell with fixture
+ *  data. Never provided anywhere in the app itself. */
+export const WorkspaceCtx = createContext<WorkspaceState | null>(null);
+const Ctx = WorkspaceCtx;
 
 const LS_WS = "sb-current-ws";
 const LS_PROJ = "sb-current-proj";

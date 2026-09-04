@@ -52,7 +52,7 @@ function ActionTask({ data, label, icon }: { data: TaskLike; label: string; icon
     <div className="card flex items-center gap-2.5 p-2.5">
       {icon}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-text">{data.title}</div>
+        <div className="truncate text-sm font-medium text-text">{data.title}</div>
         <div className="text-2xs text-text-faint">
           {label}
           {data.project ? ` · ${data.project}` : ""}
@@ -66,13 +66,13 @@ function ActionTask({ data, label, icon }: { data: TaskLike; label: string; icon
 
 function TaskList({ data }: { data: TaskLike[] }) {
   if (!data.length)
-    return <div className="card p-3 text-[13px] text-text-muted">No matching tasks.</div>;
+    return <div className="card p-3 text-sm text-text-muted">No matching tasks.</div>;
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
         <ListChecks className="h-3.5 w-3.5" /> {data.length} task{data.length === 1 ? "" : "s"}
       </div>
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-hairline/[0.042]">
         {data.slice(0, 8).map((t) => {
           const meta = statusMeta((t.status as never) ?? "todo");
           return (
@@ -80,7 +80,7 @@ function TaskList({ data }: { data: TaskLike[] }) {
               <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
               <span
                 className={cn(
-                  "flex-1 truncate text-[13px]",
+                  "flex-1 truncate text-sm",
                   t.status === "done" ? "text-text-faint line-through" : "text-text"
                 )}
               >
@@ -103,15 +103,15 @@ function Sources({ data }: { data: RetrievedChunk[] }) {
   if (!data.length) return null;
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
         <FileText className="h-3.5 w-3.5" /> Sources
       </div>
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-hairline/[0.042]">
         {data.slice(0, 4).map((s) => (
           <div key={s.id} className="px-3 py-2">
             <div className="flex items-center gap-2">
               <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-              <span className="flex-1 truncate text-[13px] font-medium text-text">{s.source}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{s.source}</span>
               {s.project && <span className="text-2xs text-text-faint">{s.project}</span>}
               <span className="mono text-2xs text-text-faint">{s.score.toFixed(2)}</span>
             </div>

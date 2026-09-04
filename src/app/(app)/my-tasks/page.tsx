@@ -55,7 +55,7 @@ export default function MyTasksPage() {
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
-      <header className="flex flex-col gap-2.5 border-b border-border px-3 pb-2 pt-3 sm:px-4 sm:pb-2.5 sm:pt-3.5">
+      <header className="flex flex-col gap-2.5 border-b border-hairline/[0.08] px-3 pb-2 pt-3 sm:px-4 sm:pb-2.5 sm:pt-3.5">
         <div className="flex items-center gap-3">
           <ListChecks className="h-4 w-4 shrink-0 text-accent" />
           <h1 className="truncate text-[15px] font-semibold tracking-tight text-text">All my tasks</h1>
@@ -72,8 +72,8 @@ export default function MyTasksPage() {
               key={t.id}
               onClick={() => changeView(t.id)}
               className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
-                view === t.id ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2 hover:text-text"
+                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                view === t.id ? "bg-surface-2 text-text" : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
               )}
             >
               <t.icon className="h-3.5 w-3.5" />
@@ -102,7 +102,7 @@ export default function MyTasksPage() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted">
+    <span className="inline-flex items-center gap-1 rounded-md border border-hairline/[0.08] bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted">
       <span className="mono font-semibold text-text">{value}</span>
       {label}
     </span>

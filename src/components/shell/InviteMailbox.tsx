@@ -52,7 +52,7 @@ export function InviteMailbox() {
       align="left"
       trigger={() => (
         <span
-          className="relative grid h-7 w-7 place-items-center rounded-md text-text-muted hover:bg-surface-2 hover:text-text"
+          className="relative grid h-7 w-7 place-items-center rounded-md text-text-muted hover:bg-hairline/[0.06] hover:text-text"
           title={`${invites.length} pending invite${invites.length === 1 ? "" : "s"}`}
         >
           <Mail className="h-4 w-4" />
@@ -69,13 +69,13 @@ export function InviteMailbox() {
           </div>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {invites.map((inv) => (
-              <div key={inv.id} className="rounded-md border border-border bg-surface-2 p-2">
+              <div key={inv.id} className="rounded-md border border-hairline/[0.08] bg-surface-2 p-2">
                 <div className="flex items-center gap-2">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-surface text-sm">
                     {inv.workspaceEmoji || "🧠"}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-text">{inv.workspaceName}</div>
+                    <div className="truncate text-sm font-medium text-text">{inv.workspaceName}</div>
                     <div className="truncate text-2xs text-text-faint">
                       {inv.invitedByName} · {inv.role}
                       {inv.scope?.length ? ` · ${inv.scope.length} project${inv.scope.length === 1 ? "" : "s"}` : ""}
@@ -96,7 +96,7 @@ export function InviteMailbox() {
                   <button
                     disabled={busy === inv.id}
                     onClick={() => respond(inv.id, "declineOne")}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-border px-2 py-1 text-2xs text-text-muted hover:bg-surface-3 hover:text-text disabled:opacity-50"
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-hairline/[0.08] px-2 py-1 text-2xs text-text-muted hover:bg-hairline/[0.09] hover:text-text disabled:opacity-50"
                   >
                     <X className="h-3 w-3" /> Decline
                   </button>

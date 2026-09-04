@@ -59,7 +59,7 @@ export function NotificationBell() {
       width={320}
       trigger={() => (
         <span
-          className="relative grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+          className="relative grid h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text"
           title={unread ? `${unread} unread` : "Notifications"}
         >
           <Bell className="h-4 w-4" />
@@ -73,8 +73,8 @@ export function NotificationBell() {
     >
       {(close) => (
         <div className="flex max-h-[70vh] flex-col">
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <span className="text-[13px] font-medium text-text">Notifications</span>
+          <div className="flex items-center gap-2 border-b border-hairline/[0.08] px-3 py-2">
+            <span className="text-sm font-medium text-text">Notifications</span>
             {unread > 0 && <span className="mono text-2xs text-accent">{unread}</span>}
             {unread > 0 && (
               <button
@@ -102,7 +102,7 @@ export function NotificationBell() {
                       close();
                     }}
                     className={cn(
-                      "flex w-full items-start gap-2.5 border-b border-border/60 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-surface-2",
+                      "flex w-full items-start gap-2.5 border-b border-hairline/[0.048] px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-hairline/[0.06]",
                       !n.read && "bg-accent/[0.05]"
                     )}
                   >
@@ -113,7 +113,7 @@ export function NotificationBell() {
                       </span>
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[13px] leading-snug text-text">
+                      <span className="block text-sm leading-snug text-text">
                         <span className="font-medium">{n.actorName}</span>{" "}
                         <span className="text-text-muted">{VERB[n.kind]}</span>{" "}
                         <span className="text-text">{n.taskTitle}</span>

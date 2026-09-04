@@ -251,7 +251,7 @@ export function TreeView({
               "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-2xs font-medium transition-colors",
               sort === "manual"
                 ? "border-accent/30 bg-accent/10 text-accent"
-                : "border-border bg-surface-2 text-text-muted hover:border-border-strong hover:text-text"
+                : "border-hairline/[0.08] bg-surface-2 text-text-muted hover:border-hairline/20 hover:text-text"
             )}
           >
             <ArrowDownUp className="h-3 w-3" />
@@ -276,8 +276,8 @@ export function TreeView({
           </SortableContext>
           <DragOverlay dropAnimation={null}>
             {activeNode ? (
-              <div className="rounded-md border border-accent/30 bg-surface shadow-pop">
-                <div className="truncate px-3 py-1.5 text-[13.5px] text-text">{activeNode.title}</div>
+              <div className="glass-panel rounded-md border-accent/35">
+                <div className="truncate px-3 py-1.5 text-sm text-text">{activeNode.title}</div>
               </div>
             ) : null}
           </DragOverlay>
@@ -287,8 +287,8 @@ export function TreeView({
       )}
 
       {tasks.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-14 text-center">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-surface-2 text-text-muted">
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-hairline/[0.1] py-14 text-center">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-hairline/[0.06] text-text-muted shadow-[inset_0_1px_0_rgb(var(--hairline)/0.08)]">
             <ListTree className="h-5 w-5" />
           </div>
           <div>
@@ -315,7 +315,7 @@ export function TreeView({
           ref={composerRef}
           // Negative margins must track the container's own padding, which is
           // tighter on phones, or the bar overflows its scrollport.
-          className="sticky bottom-0 z-10 -mx-2 mt-1.5 border-t border-border bg-bg/95 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:-mx-4 sm:px-4 sm:pb-1.5"
+          className="sticky bottom-0 z-10 -mx-2 mt-1.5 border-t border-hairline/[0.07] bg-surface/80 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:-mx-4 sm:px-4 sm:pb-1.5"
         >
           <QuickAdd
             inputRef={addRef}

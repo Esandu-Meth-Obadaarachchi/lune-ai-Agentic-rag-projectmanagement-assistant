@@ -136,21 +136,21 @@ function StatusGroup({
         ) : (
           <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
         )}
-        <span className="text-[13px] font-semibold text-text">{meta.label}</span>
+        <span className="text-sm font-semibold text-text">{meta.label}</span>
         <span className="mono text-2xs text-text-faint">{rows.length}</span>
         {!crossProject && (
           <button
             onClick={() => setAddingTop(true)}
             title={`Add to ${meta.label}`}
-            className="grid h-5 w-5 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-text focus-visible:opacity-100 group-hover/head:opacity-100"
+            className="grid h-5 w-5 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-hairline/[0.06] hover:text-text focus-visible:opacity-100 group-hover/head:opacity-100"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="overflow-hidden rounded-lg border border-hairline/[0.08]">
         {addingTop && !crossProject && (
-          <div className="border-b border-border/60 px-2">
+          <div className="border-b border-hairline/[0.048] px-2">
             <QuickAdd
               autoFocus
               placeholder={`Add task to ${meta.label}`}
@@ -174,7 +174,7 @@ function StatusGroup({
           <div className="px-3 py-2 text-2xs text-text-faint">Nothing here</div>
         )}
         {!crossProject && (
-          <div className={cn("px-2", rows.length > 0 && "border-t border-border/60")}>
+          <div className={cn("px-2", rows.length > 0 && "border-t border-hairline/[0.048]")}>
             <QuickAdd
               placeholder={`Add task to ${meta.label}`}
               onAdd={(title) => actions.add(title, { status })}
@@ -207,8 +207,8 @@ function Row({
     <>
       <div
         className={cn(
-          "group flex items-center gap-2.5 pr-3 transition-colors hover:bg-surface-2",
-          !first && "border-t border-border/60",
+          "group flex items-center gap-2.5 pr-3 transition-colors hover:bg-hairline/[0.06]",
+          !first && "border-t border-hairline/[0.048]",
           isSub && "bg-surface/40"
         )}
         style={{ paddingLeft: 12 + depth * 22 }}
@@ -219,7 +219,7 @@ function Row({
           onClick={() => onOpenTask(task)}
           className={cn(
             "flex-1 truncate py-2.5 text-left",
-            isSub ? "text-[13px]" : "text-[13.5px]",
+            isSub ? "text-sm" : "text-sm",
             task.status === "done" ? "text-text-faint line-through" : "text-text"
           )}
         >
