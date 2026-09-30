@@ -45,16 +45,31 @@ export interface AuthedUser {
   name?: string | null;
 }
 
-export async function prepareTurn(
-  body: { message: string; workspaceId?: string; projectId?: string; history?: ChatTurn[] },
-  user: AuthedUser
-): Promise<Turn> {
+/**
+ * The cheap half of setup: rate limit and clean the message.
+ *
+ * Split out from the rest because both of its failures are HTTP status codes
+ * (429, 400), which have to be decided before a streaming response begins. It
+ * touches no network beyond the rate-limit counter, so the streaming route can
+ * run it first, open the stream, and do the expensive half inside — which is
+ * what lets the first frame land immediately instead of after a scope load.
+ */
+export async function beginTurn(body: { message: string }, user: AuthedUser): Promise<string> {
   await checkChat(user.uid);
-
   // Strips zero-width and bidirectional characters, which render as nothing on
   // screen while still reaching the model as text.
   const message = sanitiseInput(body.message, MAX_CHAT_INPUT_CHARS);
   if (!message) throw new Response("message is required", { status: 400 });
+  return message;
+}
+
+/** The expensive half: scope, memory and the example library. */
+export async function prepareTurn(
+  body: { message: string; workspaceId?: string; projectId?: string; history?: ChatTurn[] },
+  user: AuthedUser,
+  prepared?: string
+): Promise<Turn> {
+  const message = prepared ?? (await beginTurn(body, user));
 
   // The agent's scope is everything the user can access, across ALL workspaces.
   // workspaceId/projectId are just the current view (defaults + prompt naming).

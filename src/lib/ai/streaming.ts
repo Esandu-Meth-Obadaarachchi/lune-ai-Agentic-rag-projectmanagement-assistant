@@ -67,10 +67,15 @@ export async function* streamAgent(
   plan: ModelPlan = planFor(message, {
     historyDepth: memory.recent.length,
     hasSummary: memory.hasSummary,
-  })
+  }),
+  /** False when the caller already sent `meta` — the streaming route emits it
+   *  before the scope load so the first frame is not held behind it. */
+  emitMeta = true
 ): AsyncGenerator<Frame> {
   ctx.steps.push(`model: ${plan.model} (${plan.tier}, ${plan.reason})`);
-  yield { frame: sse("meta", { tier: plan.tier, model: plan.model, reason: plan.reason }) };
+  if (emitMeta) {
+    yield { frame: sse("meta", { tier: plan.tier, model: plan.model, reason: plan.reason }) };
+  }
 
   const system = buildSystem(ctx, meta, memory);
   const messages = buildMessages(memory, message);
