@@ -1,131 +1,184 @@
-# Agentic RAG — the retrieval loop, in depth
+# Agentic RAG — the retrieval loop and the agent
 
-`docs/RAG.md` covers the whole system. This document zooms into the **retrieval loop** — the part that decides *which passages* the agent gets to reason over. Retrieval quality is the ceiling on answer quality: the best model in the world cannot answer well from the wrong context. Everything here lives in `src/lib/ai/retrieval.ts`.
+`docs/RAG.md` is the end-to-end walkthrough. This is the deep dive on the two loops that decide answer quality: **how retrieval decides it has found enough**, and **how the agent decides what to do**.
 
 ---
 
-## Why "agentic" retrieval instead of a single fetch
+## 1. What "agentic" means here
 
-The naive RAG pipeline is one step: embed the question, fetch the top-k nearest vectors, stuff them in the prompt. It fails in predictable ways:
+Plain RAG is one shot: embed the question, fetch the top *k*, generate. If the retrieval was bad, the answer is bad, and nothing in the system notices.
 
-- The user's phrasing is a bad search query ("what did we decide about the thing last week?").
-- The top-k by vector similarity are *approximately* relevant, not the *best* passages.
-- Sometimes the right passage simply is not in the first pull, and a naive pipeline has no recourse — it answers from weak context anyway.
+Agentic RAG adds judgement at two levels:
 
-Agentic retrieval adds a small control loop that fixes each of these: it rewrites the query, reranks with a cross-encoder, grades its own results, and retries when they are weak — then checks the final answer against its sources. It is "agentic" because the system makes decisions about its own retrieval rather than running a fixed pipeline once.
+- **Inside retrieval** — the pipeline assesses its own results and retries with a different query if they are weak.
+- **Above retrieval** — the agent decides *whether* to search at all, *what* to search for, *which profile* to use, and whether it has enough to answer or should ask the user instead.
+
+---
+
+## 2. The retrieval loop
+
+```mermaid
+flowchart TB
+  Q["the user's own words<br/>(no rewrite on the first attempt)"]
+  Q --> P["embed dense + lexical<br/>in parallel"]
+  P --> F["fan out across every accessible<br/>project namespace, in parallel"]
+  F --> RRF["reciprocal rank fusion<br/>positions, not scores"]
+  RRF --> RR["cross-encoder rerank<br/>reads query + passage together"]
+  RR --> MMR["MMR + per-document cap<br/>coverage, not five copies of one section"]
+  MMR --> G{"top rerank score?"}
+  G -->|"≥ 0.50"| OK["good — confident, no model call"]
+  G -->|"0.22 – 0.50"| LLM["one Haiku grade<br/>(the only ambiguous band)"]
+  LLM -->|good| OK
+  LLM -->|weak| RW
+  G -->|"< 0.22"| RW["rewrite the query<br/>with the entities and identifiers"]
+  RW -->|"attempt 2 of 2"| P
+  OK --> OUT["chunks + a trace of every stage"]
+```
+
+### 2.1 The two changes that matter
+
+The loop this replaces rewrote the query with an LLM **before every single search**, then graded the result with a second LLM call. A plain lookup cost two model calls before generation had even started.
+
+**The first attempt now uses the user's own words.** Embeddings handle natural language perfectly well — that is what they are for — so rewriting up front spends latency to solve a problem that usually is not there. The rewrite is held back as the *recovery* path, where it earns its cost.
+
+**The grade is replaced by the reranker's own score.** A cross-encoder that has already read the query and the passage together is a better judge of relevance than a Haiku call asking "good or weak" — and it is *free*, because it has already run. An LLM grade is spent only when the score lands in the ambiguous band between 0.22 and 0.50, where a second opinion is genuinely worth a few hundred milliseconds.
+
+**Result: zero LLM calls on the common path, at most two on the recovery path, against a guaranteed two before.**
+
+Measured on a live index, a confident lookup now reads:
 
 ```
-question
-  -> rewrite      (Haiku turns it into a search-optimised query)
-  -> retrieve     (Voyage embed + Pinecone across the user's allowed namespaces, WIDE net of 20)
-  -> rerank       (Voyage rerank-2.5 cross-encoder, keep the best 4)
-  -> grade        (Haiku: do these chunks answer the question? good | weak)
-        weak and attempts < 2 -> rewrite from a NEW angle and retry
-  -> generate     (the agent writes the answer in agent.ts, on CLAUDE_MODEL)
-  -> self-check    (Haiku: is every claim supported by the sources?)
+hybrid: 3 dense + 0 lexical candidate(s) | reranked to 3, top score 0.93 | confident on rerank score 0.93
 ```
 
-The "allowed namespaces" are every project the requesting user belongs to, across all their workspaces (`loadUserScope`), each gated by `memberIds` — broad access, no isolation leak.
+Three stages, one round trip each, no model call.
+
+### 2.2 Why the thresholds are where they are
+
+Voyage rerank scores sit in [0, 1]. Above **0.50** the reranker is sure enough that an LLM grade adds latency and nothing else. Below **0.22** it is plainly weak and a second opinion would only confirm it. Only the band between is worth paying for.
+
+Both are `RERANK_CONFIDENT_SCORE` and `RERANK_WEAK_SCORE` in the environment. Raise the first if you see confident-but-wrong answers; lower it if grading is firing too often.
+
+### 2.3 Best-so-far
+
+Each attempt keeps the best chunk set seen, compared by top score. If the rewrite retrieves *worse* than the original query — which happens — the original result is what comes back. A retry can never make the answer worse than not retrying.
 
 ---
 
-## Step 1 — Rewrite (`rewriteQuery`)
+## 3. The agent loop
 
-**What:** a cheap Haiku call turns the raw question into a keyword-and-entity-rich search query.
+```mermaid
+flowchart TB
+  M["the user's message"] --> R["router — fast / reasoned / deep"]
+  R --> S["system prompt<br/>[stable ▸ cache breakpoint] [volatile]"]
+  S --> L["Claude + 8 tools"]
+  L -->|"tool_use blocks"| X["run them all concurrently<br/>return results in ONE user message"]
+  X --> PEND{"did a tool ask<br/>rather than act?"}
+  PEND -->|yes| RELAY["one short relay turn<br/>put the question in the user's words"]
+  PEND -->|no| L
+  L -->|"no tool calls"| A["the answer"]
+  A --> GND["groundedness check<br/>(only if documents were used)"]
+  GND --> RDC["secret redaction"]
+  RELAY --> OUT["answer + steps + sources + cards"]
+  RDC --> OUT
+```
 
-**Why:** embedding search matches *meaning*, but a conversational question carries filler ("can you remind me...", "I think we...") that dilutes the signal. Rewriting concentrates the query on the entities and terms that actually discriminate between documents. On a **retry**, the rewriter is told the previous query was weak and asked for a *different* angle, so the second attempt is not just a rephrase of the first — it comes at the topic from a new direction (different synonyms, a related entity, a broader or narrower framing).
+### 3.1 The tools
 
-**Cost:** one short Haiku call (`maxTokens: 80`).
+| Tool | What it is for |
+|---|---|
+| `search_knowledge` | Documents. Takes a `mode` — the agent picks the retrieval profile itself |
+| `list_tasks` | The only source of truth about work items. Filters by project, assignee, parent, status, time |
+| `create_task` | Exactly one task |
+| `create_tasks` | A whole nested tree in one call — and the approval gate above the threshold |
+| `update_task` | Status, priority, due date, title. Refuses on an ambiguous match |
+| `summarize_project` | Tasks + the `summarize` retrieval profile over that project |
+| `ask_user` | Hand a question back with option buttons, instead of guessing |
+| `request_example` | Ask for a sample before writing something format-sensitive |
+| `save_example` | Store that sample so it is never asked for twice |
 
----
+**Tool descriptions are part of the prompt.** A description is the only documentation the model gets, and a vague one produces a wrong call that costs a whole extra round trip to discover. Every description says what the tool does, when to reach for it, **when not to**, and what its arguments mean — including the cases where a different tool is the right answer. They are written for a model deciding under uncertainty, not for a developer reading an API reference.
 
-## Step 2 — Retrieve, the wide net (`retrieveAndRerank`, first half)
+Concretely: `create_task`'s description says *"DO NOT USE FOR: several tasks, or any task that has subtasks — use create_tasks... Calling this in a loop produces orphaned tasks and wastes the turn."* That one sentence removes an entire failure mode.
 
-**What:** embed the query (`embedQuery`, `input_type: "query"`) and pull **`CANDIDATES = 20`** nearest vectors from the allowed namespaces via `queryNamespaces`, which fans out across namespaces and merges by score.
+### 3.2 Parallel tool calls
 
-**Why 20 and not 4?** This stage optimises **recall**, not precision. We do not yet care about perfect ordering — we care that the truly-relevant passage is *somewhere* in the set. The bi-encoder (embedding search) is fast but only approximately right, so we cast a deliberately wide net and let the next stage sort it out. If the right passage is not in these 20, no amount of reranking recovers it; if it is buried at position 15, reranking will surface it.
+One assistant message may contain several `tool_use` blocks. They are executed **concurrently** and their results returned in a **single** user message. Splitting results across messages silently teaches the model to stop making parallel calls at all — which costs a round trip on every multi-tool turn thereafter.
 
----
+A tool that throws returns `is_error: true` rather than propagating. The model can often recover by calling something else, and dropping the result entirely would leave the conversation in a shape the API rejects.
 
-## Step 3 — Rerank, the precision pass (`rerank`, `retrieveAndRerank` second half)
+### 3.3 Asking as a first-class outcome
 
-**What:** `rerank-2.5` (a cross-encoder) scores each of the 20 `(query, chunk)` pairs and we keep the top **`KEEP = 4`**.
+`ask_user` and `request_example` set a **flag on the tool context**, not an exception. An exception would be fed back to the model as a tool failure to recover from, turning a deliberate question into what looks like a bug.
 
-**Bi-encoder vs cross-encoder — the core idea:**
-- The embedding search is a **bi-encoder**: query and document are encoded into vectors *separately*, then compared by cosine. Separate encoding is what makes it fast (documents are pre-embedded once) but also what makes it imprecise — the model never sees the two together, so it cannot judge subtle relevance.
-- The reranker is a **cross-encoder**: it runs the query and one document through the model *together*, so it can directly weigh "how well does this passage answer this query?". Much more accurate, but it cannot be pre-computed, so it only runs on the 20 candidates, never the whole corpus.
+When the flag is set, the loop stops and spends one short, thinking-free relay turn putting the question into the user's language, with the card carrying the options. If the model answers around the question instead, the tool's own message is the fallback.
 
-**Why this is the biggest lever after chunking:** vector similarity confuses "about the same topic" with "answers this question". The cross-encoder fixes exactly that, promoting the passage that *answers* over the passage that merely *mentions*. Going from top-4-by-cosine to top-4-after-rerank is usually the single largest jump in answer quality.
+### 3.4 Prompt caching, and how to break it
 
----
+The system prompt is two blocks:
 
-## Step 4 — Grade (`gradeChunks`)
+```
+[ STABLE — persona, tool guidance, accuracy rules ]  ← cache_control: ephemeral
+[ VOLATILE — user name, today's date, project list, conversation summary ]
+```
 
-**What:** a Haiku call reads the kept passages and returns one word: `good` or `weak` — does this context contain enough to answer the question?
+The stable half is byte-identical for every user on every request, so it sits in the cached prefix and is re-read at a fraction of the input price.
 
-**Why:** without a grader, the pipeline always answers, even from irrelevant context, which is how you get confident hallucination. The grader is the loop's decision point: a `good` verdict proceeds to generation; a `weak` verdict triggers a retry with a fresh query. It is a cheap, blunt instrument (5 output tokens), and that is fine — we only need a rough "is this worth answering from?" signal.
+**Two rules, both easy to break by accident:**
 
----
+1. Anything time-varying, user-varying or conversation-varying must live in the volatile half. One timestamp in the stable half silently disables the cache for *everyone*, with no error anywhere.
+2. The tool list must not be rebuilt in a different order between turns. Tools render *before* the system prompt, so a reordered tool array invalidates everything after it.
 
-## Step 5 — Retry (the loop in `agenticRetrieve`)
+Verify with `usage.cache_read_input_tokens`. If it is zero across repeated turns, something above is wrong.
 
-On a `weak` grade, and while `attempts < MAX_ATTEMPTS = 2`, the loop rewrites the query from a new angle and searches again, keeping the best-scoring set seen so far. After the ceiling it stops and returns the best it found rather than looping forever.
+### 3.5 Model tiering
 
-**Why cap at 2?** Each retry is another rewrite + embed + Pinecone query + rerank + grade — real latency and cost. In practice a second, differently-angled attempt captures most of the recoverable cases; a third rarely helps enough to justify the wait. This is a latency/accuracy trade-off, and 2 is the tuned default.
+| Tier | Trigger | Model | Thinking |
+|---|---|---|---|
+| `fast` | ≤ 8 words with no planning language; anything else that is a plain lookup | Haiku 4.5 | none |
+| `reasoned` | "summarise", "each", "phases", "subtasks"; > 45 words; deep history | Haiku 4.5 | explicit budget |
+| `deep` | "plan", "compare", "why", "recommend", "should we", "break X into Y" | Sonnet 5.5 | adaptive + effort |
 
----
+A heuristic, not a model call — a model call to decide how much model to use sits on the critical path of every turn and costs the latency it exists to save. Getting it wrong is cheap in both directions.
 
-## Step 6 — Generate
-
-The agent (`agent.ts`, on `CLAUDE_MODEL`) writes the answer from the kept passages. This is the only expensive call in the chain; everything above uses cheap Haiku helpers so we spend the big model's budget once, on well-chosen context.
-
----
-
-## Step 7 — Grounded self-check (`checkGrounded`)
-
-**What:** after generation, a Haiku call asks: is every factual claim in the answer supported by the retrieved sources? If not, the answer gets a subtle caveat appended rather than being presented as fact.
-
-**Why:** even with good retrieval, a model can over-reach and assert things the sources do not support. This is a last, cheap guardrail against hallucination — it does not block the reply (never fail a whole answer on the self-check), it just flags when the answer drifted past its evidence. It only runs when the answer actually drew on retrieved documents.
-
----
-
-## The models and where the money goes
-
-| Step | Model | Why |
-|---|---|---|
-| rewrite, grade, groundedness | **Haiku** (`CLAUDE_FAST_MODEL`) | short answers, run often — always the cheapest model regardless of the generation model |
-| retrieve | Voyage `voyage-3.5` embeddings + Pinecone | fast first-stage recall |
-| rerank | Voyage `rerank-2.5` cross-encoder | precise second-stage ranking |
-| generate | `CLAUDE_MODEL` (default Haiku, swap to Opus/Sonnet) | the one expensive reasoning call |
-
-Generation is also cost-capped in `agent.ts`: `MAX_ANSWER_TOKENS` 1024, `MAX_TOOL_ROUNDS` 6, and only the last 5 turns are sent. So a knowledge question is: a few tiny Haiku calls + one Voyage rerank + one bounded generation. Cheap, and every stage is independently tunable.
-
----
-
-## Tuning knobs (`src/lib/ai/retrieval.ts`)
-
-- `CANDIDATES` (20) — the wide net from the bi-encoder. Raise for more recall at more rerank cost.
-- `KEEP` (4) — chunks kept after reranking and fed to the model. Fewer keeps the prompt tight and cheaper; more gives the model more to work with.
-- `MAX_ATTEMPTS` (2) — the grade-and-retry ceiling. Bounds latency and cost.
-
-Rules of thumb: if answers miss facts that *are* in the docs, raise `CANDIDATES` (recall problem) or check chunking. If answers are padded with irrelevant context, lower `KEEP` (precision problem). If specific hard questions fail, raise `MAX_ATTEMPTS` or improve the rewrite prompt.
+`historyDepth` and `hasSummary` feed the classifier because a turn arriving late in a long conversation carries more to hold together, and a bare *"yes, do that"* can trigger the largest action in the session.
 
 ---
 
-## What was deliberately left out, and why
+## 4. Failure modes and what catches them
 
-**LangChain / LangGraph.** The loop is small enough to read top-to-bottom in `retrieval.ts` and `agent.ts`. A framework would add a dependency and a layer of indirection for a loop we can already see and control. LangSmith gives the observability without the framework — the reason most people reach for LangChain.
+| Failure | Caught by |
+|---|---|
+| Retrieval returns nothing relevant | Confidence gate → rewrite and retry |
+| Retrieval returns five copies of one section | MMR + per-document cap |
+| A rare code or id is missed | The lexical leg (when hybrid is on) + the rewrite prompt asking for identifiers |
+| The answer states something the sources do not | Groundedness check → caveat |
+| A document contains an injected instruction | Untrusted framing → detection → containment |
+| The model invents a task or a date | The prompt forbids it; `list_tasks` is the only source of truth |
+| The model edits the wrong task | `update_task` refuses on an ambiguous match |
+| The model creates eighteen wrong tasks | Approval gate above the threshold |
+| The model loops forever | `MAX_TOOL_ROUNDS` = 6 |
+| The reply is cut off mid-tool-call | `stop_reason: max_tokens` handled explicitly, with a plain explanation |
+| A conversation contradicts its own earlier decisions | Rolling summary in the volatile prompt half |
+| The reranker is down | Falls back to fusion order; the search still returns |
+| The lexical service is down | Falls back to dense-only |
+| Vector fetch for MMR fails | Falls back to lexical-overlap MMR |
+| The cache is down | Cool-off, then treated as a miss |
 
-**A vector-only, no-rerank pipeline.** Simpler and slightly cheaper, but it caps out at "top-k by cosine", which is the accuracy problem the cross-encoder exists to solve. The rerank pass is worth its cost.
+The pattern throughout: **every optional component degrades rather than fails.** A cache that can take the service down is worse than no cache.
 
 ---
 
-## Observability
+## 5. Tuning guide
 
-With `LANGSMITH_TRACING=true` and a key set, every call in this loop is traced: you can see the rewritten query, exactly which 20 candidates came back, how the reranker reordered them, the grade verdict, and the groundedness result. When a RAG answer is wrong, this is how you find *where* — bad rewrite, bad recall, bad ranking, or bad generation — instead of guessing.
-
----
-
-## No re-ingestion needed for retrieval changes
-
-The retrieval loop, the reranker, the cross-workspace scope, and the cost caps all operate at *query* time. They do not change how documents are stored (still `voyage-3.5`, 1024-dim, per-project namespaces), so existing Pinecone vectors stay valid — you can tune retrieval freely without re-embedding anything. Re-ingestion is only needed if you change the embedding model, dimension, or chunking.
+| Symptom | Try |
+|---|---|
+| Answers miss facts that are in the documents | `CHUNK_TARGET_TOKENS` down; check the parser recovered structure (`parsing` in the ingest response) |
+| Answers cite the same file repeatedly | Lower `lambda` or raise `perDocCap` for the profile |
+| Retrieval is slow | `candidates` down; confirm the chunk-vector cache is warm (`/api/ready` → cache tier) |
+| Rare codes and ids are missed | Turn on hybrid search (needs a dotproduct index) |
+| Grading fires on most queries | `RERANK_CONFIDENT_SCORE` down |
+| Confident but wrong | `RERANK_CONFIDENT_SCORE` up; `keep` up |
+| Too expensive | `DEEP_MODEL_ENABLED=false`; `ANSWER_MAX_TOKENS` down; `CONTEXTUAL_RETRIEVAL_ENABLED=false` (costs recall) |
+| Ingest too slow | `VISION_ENABLED=false` (loses scanned pages); `CONTEXT_CONCURRENCY` up |
+| Agent asks too many questions | Raise `APPROVAL_TASK_THRESHOLD`; tighten the ask guidance in `persona.ts` |

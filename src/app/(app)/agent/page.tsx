@@ -244,7 +244,7 @@ export default function AgentPage() {
             ) : (
               <div className="mt-6 space-y-5">
                 {messages.map((m) => (
-                  <AgentMessage key={m.id} message={m} />
+                  <AgentMessage key={m.id} message={m} onReply={send} />
                 ))}
               </div>
             )}

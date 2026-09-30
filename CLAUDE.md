@@ -7,7 +7,7 @@ Read this first in any session. It is the map of the codebase and the rules for 
 Shipped as **Lune AI — Your Personal Workspace** (product name; the codebase/package is still `second-brain`). An AI-native project + knowledge manager. Notion-meets-Linear feel: dense, dark, keyboard-friendly. Pillars on one backend:
 
 1. **Execution** — Workspace -> Project -> Task -> Subtask (recursive). Nine per-project tabs: Tree, Board (Kanban), List, Calendar, Map (React Flow mind map), Draw (Excalidraw whiteboard), Docs (project pages), **Members** (Kanban grouped by assignee, drag to reassign) and **Team** (per-project member roles/skills + AI task assignment). List/Board only ever show top-level tasks with subtasks nested underneath. The Board supports **per-project custom statuses** on top of the four built-ins.
-2. **Knowledge** — per-project RAG. Upload docs, they are chunked, embedded (Voyage) and stored in Pinecone.
+2. **Knowledge** — per-project RAG. Upload docs; they are parsed *with structure* (headings, tables, pages, OCR for scans), chunked on that structure, contextualised, embedded (Voyage) and stored in Pinecone. See `docs/RAG.md`.
 3. **Agent** — a Claude tool-calling agent ("the brain") that reads and writes tasks and searches knowledge. Conversations are saved to Firestore (chat history sidebar). Plus a daily standup.
 4. **Today** (`/today`) — every task due on the focused day across *all* workspaces, plus a per-user day planner (notebook) synced to Firestore. A day picker (prev/next + back-to-today) drives the task list, stats, export and the notebook together; overdue only shows when the focused day is today. Tasks assigned to the current user float to the top of each group.
 5. **Pages** — Notion-style block documents (BlockNote) at workspace or project level, nestable into a page tree.
@@ -23,7 +23,9 @@ Full product intent is in `second-brain-app-spec.md` and `second-brain-design-br
 | Styling | Tailwind CSS 3.4, CSS-variable tokens | dark default, light fallback |
 | Auth | Firebase Auth (Google) | client SDK; server verifies ID tokens |
 | Database | Cloud Firestore | real-time `onSnapshot`, per-workspace isolation. **Client init forces long-polling** (`initializeFirestore` + `experimentalForceLongPolling` in `lib/firebase/client.ts`) to dodge a WebChannel watch-stream assertion crash |
-| Agent + generation | Anthropic Claude, model via `CLAUDE_MODEL` env (default `claude-haiku-4-5`) | tool-use loop, server-only. Retrieval helper steps run on Haiku regardless |
+| Agent + generation | Anthropic Claude, **tiered per turn** | `CLAUDE_MODEL` (default `claude-haiku-4-5`) for fast/reasoned, `CLAUDE_DEEP_MODEL` (`claude-sonnet-5-5`) for planning turns. Tool-use loop, server-only. Retrieval helpers always run on the fast model |
+| Document parsing | `unpdf` (layout PDF), `mammoth` (docx), `xlsx`, `jszip` (pptx), `pdf-lib` (page extraction for OCR) | all pure JS — no native deps, serverless-safe |
+| Cache | in-process LRU → Upstash REST → Firestore | answers (exact + semantic), query embeddings, chunk vectors, rate limits. `GET /api/ready` says which tier is live |
 | Embeddings | Voyage AI (`voyage-3.5`, 1024-dim) | Claude has no embedding model |
 | Vector store | Pinecone | one index, namespace per project |
 | Drag + drop | @dnd-kit | Kanban + Calendar |
@@ -34,14 +36,14 @@ Full product intent is in `second-brain-app-spec.md` and `second-brain-design-br
 
 `reactStrictMode` is **off** in `next.config.js` on purpose — StrictMode's dev double-mount rapidly re-subscribes Firestore listeners and trips the same WebChannel assertion.
 
-Model + RAG rationale: `docs/RAG.md` and `docs/AGENTIC_RAG.md`. Data model: `docs/DATA_MODEL.md`. Team roles, AI assignment, Members board + custom statuses: `docs/COLLABORATION.md`. Visual system: `docs/DESIGN_SYSTEM.md`. Architecture: `docs/ARCHITECTURE.md`. Setup: `docs/SETUP.md`. Google Calendar sync: `docs/CALENDAR.md`. Deployment: `docs/DEPLOYMENT.md`. Roadmap + phase status: `docs/ROADMAP.md`. Recent changes: `docs/CHANGELOG.md`.
+Model + RAG rationale: `docs/RAG.md` (full pipeline + diagram) and `docs/AGENTIC_RAG.md` (retrieval loop, agent loop, tuning). Guardrails and threat model: `docs/SECURITY.md`. Data model: `docs/DATA_MODEL.md`. Team roles, AI assignment, Members board + custom statuses: `docs/COLLABORATION.md`. Visual system: `docs/DESIGN_SYSTEM.md`. Architecture: `docs/ARCHITECTURE.md`. Setup: `docs/SETUP.md`. Google Calendar sync: `docs/CALENDAR.md`. Deployment: `docs/DEPLOYMENT.md`. Roadmap + phase status: `docs/ROADMAP.md`. Recent changes: `docs/CHANGELOG.md`.
 
 ## Live instance (provisioned + deployed)
 
 - **Production:** https://luneai.site (Netlify site `esa-ai-personal-assistant`, team `eobadaarachchi`/"Shona"; the `*.netlify.app` subdomain still resolves). Deploy manually with `netlify deploy --build --prod`. Env vars live on the Netlify site (imported from `.env.local`, with the URL-based ones repointed to the prod domain). Set `CLAUDE_MODEL` there to change the generation model (default Haiku).
 - **Firebase project:** `second-brain-fbf414` (owner `eobadaarachchi@gmail.com`), pinned in `.firebaserc`.
 - **Auth:** Google sign-in enabled. Authorised domains include `localhost`, `esa-ai-personal-assistant.netlify.app` and `luneai.site`. On first login a signed-in user is seeded with a single **Test it out** sandbox workspace holding two demo projects.
-- **Firestore:** `asia-south1`. **Rules must be redeployed after any change** (`firebase deploy --only firestore:rules`) — hosting on Netlify does not touch them. New collections (`dayPlans`, `whiteboards`, `pages`, `chats`, `chatMessages`, `usage`) will 403 until the rules are live.
+- **Firestore:** `asia-south1`. **Rules must be redeployed after any change** (`firebase deploy --only firestore:rules`) — hosting on Netlify does not touch them. New collections (`dayPlans`, `whiteboards`, `pages`, `chats`, `chatMessages`, `usage`, and the server-only `agentProposals` / `agentExamples` / `agentAudit` / `agentCache`) will 403 until the rules are live.
 - **Admin oversight (`/admin`):** owner-only Batcomputer dashboard — user list, workspace counts and per-user Claude spend. Gated to the emails in `lib/admin.ts` (`ADMIN_EMAILS`). Spend is tracked by `lib/ai/usage.ts`: every Claude call inside `/api/chat` and `/api/assign` runs in a `withUsage(user, …)` scope, and `recordUsage` folds token counts + USD cost into `usage/{uid}` (server-only collection). There is **no historical backfill** — figures accumulate from first deploy of the tracking. Pricing table in `usage.ts` (keyed by model; update if `CLAUDE_MODEL` changes tier).
 - **Admin SDK:** service-account key set in `.env.local` + Netlify — powers `requireUser`, agent writes and all sharing writes.
 - **AI keys:** `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `PINECONE_API_KEY` are configured. If ever blank, everything except `/api/chat`, `/api/ingest`, `/api/related`, `/api/assign` still works.
@@ -65,6 +67,9 @@ src/
     (app)/agent/page.tsx       Standup + chat surface (with saved chat-history sidebar)
     (app)/knowledge/page.tsx   Document / note ingestion
     api/chat|ingest|related    Agent, RAG ingest, smart-linking (POST)
+    api/chat/stream/route.ts   The same agent turn as SSE (meta/step/thinking/token/card/done)
+    api/proposals/[id]/route.ts Approve or cancel a held plan (large writes). No model runs here
+    api/ready/route.ts         What this deployment is actually wired to (cache tier, models, keys present)
     api/assign/route.ts        AI task assignment: brief -> workload-aware task proposals (admin only)
     api/members/route.ts       Sharing: list/invite/accept/update/remove (POST/GET).
                                NB named /api/members, NOT /api/share — ad-blockers block "share" URLs.
@@ -88,7 +93,11 @@ src/
                WorkspaceContext (tasks, workspaceTasks, allTasks, pages, inboxProject, useProjectStatuses),
                useTaskActions, tree.ts, standup.ts
     share/     server.ts (admin-side membership: invites, roles, per-project scope, recompute)
-    ai/        voyage, pinecone, anthropic, chunker, parse, persona, tools, agent, retrieval, server
+    ai/        config, documents, parse + parsers/, vision, chunker, contextualize, ingest,
+               voyage, sparse, pinecone, fusion, profiles, retrieval, router, anthropic,
+               persona, memory, tools, agent, streaming, turn, proposals, audit, server
+    cache/     store (3-tier), semantic (answer cache), vectors (embeddings + chunk vectors)
+    security/  guardrails (injection, redaction, sanitising), limits (rate limiting)
     google/    calendar.ts, store.ts, sync.ts
     types.ts, constants.ts, date.ts, utils.ts, api.ts, export.ts
 firestore.rules / firestore.indexes.json / firebase.json / netlify.toml
@@ -107,15 +116,20 @@ firestore.rules / firestore.indexes.json / firebase.json / netlify.toml
 
 ## How the agent works (important)
 
-`POST /api/chat` -> `requireUser` verifies the Firebase ID token -> `loadUserScope` fetches **every workspace and project the user can access, across all their workspaces** (each gated by `memberIds`, so per-project scope still holds — a scoped member never sees another project's tasks or knowledge) -> `runAgent` runs a Claude tool-use loop (`src/lib/ai/agent.ts`) with the tools in `src/lib/ai/tools.ts`:
+`POST /api/chat` (or `/api/chat/stream`) -> `requireUser` verifies the Firebase ID token -> rate limit + input sanitise -> **answer cache** (exact, then semantic) -> `loadUserScope` fetches **every workspace and project the user can access, across all their workspaces** (each gated by `memberIds`, so per-project scope still holds) -> the **router** picks a tier -> `runAgent` runs a Claude tool-use loop (`src/lib/ai/agent.ts`) with the tools in `src/lib/ai/tools.ts`:
 
-- `search_knowledge` — Voyage-embed the query, agentic retrieve + rerank across every accessible project namespace (all workspaces)
-- `list_tasks`, `create_task`, `update_task` — read/write Firestore via admin; `list_tasks` spans all the user's workspaces, so "my tasks today" is global. `create_task` writes into the target project's own workspace + `memberIds`
-- `summarize_project` — tasks + top knowledge chunks
+- `search_knowledge` — hybrid retrieve (dense + optional lexical) -> RRF -> rerank -> MMR -> confidence gate, across every accessible project namespace. Takes a `mode` so the agent picks the retrieval profile itself
+- `list_tasks`, `create_task`, `create_tasks`, `update_task` — read/write Firestore via admin, spanning all the user's workspaces
+- `summarize_project` — tasks + the `summarize` retrieval profile
+- `ask_user`, `request_example`, `save_example` — the agent asks instead of guessing; these set `ctx.pending`, they do not throw
 
-The request's `workspaceId`/`projectId` are only the current view — used to default new tasks and name the current workspace in the prompt, not to limit scope. Cost caps live in `agent.ts` (`MAX_ANSWER_TOKENS` 1024, `MAX_TOOL_ROUNDS` 4) and only the last 5 turns are sent to the model; the full conversation is persisted in Firestore (`chats` + `chatMessages`, personal to the user and **global across workspaces** — the sidebar shows every past chat regardless of which workspace is active). Tool executors accumulate `sources`, `cards` and `steps` on the `ToolContext`; these are returned to the UI and rendered by `components/agent/cards.tsx`. Thinking is left off for latency; the persona prompt (`src/lib/ai/persona.ts`) keeps reasoning out of the visible answer. Retrieval quality (rewrite -> rerank -> grade-and-retry -> grounded self-check) is in `src/lib/ai/retrieval.ts` — see `docs/AGENTIC_RAG.md`.
+The request's `workspaceId`/`projectId` are only the current view. Cost caps: `MAX_TOOL_ROUNDS` 6 in `agent.ts`, `ANSWER_MAX_TOKENS`, plus per-user rate limits. Memory is a 3-pair verbatim window over a **rolling summary** (`memory.ts`), rebuilt after the reply is sent. The system prompt is split at a **cache breakpoint** (`persona.ts`): the stable half must stay byte-identical between turns or prompt caching silently stops working for everyone. Tool executors accumulate `sources`, `cards` and `steps` on the `ToolContext`; these are returned to the UI and rendered by `components/agent/cards.tsx`.
 
-The generation model is `CLAUDE_MODEL` (default `claude-haiku-4-5`); the retrieval helper steps always run on Haiku. When you change the API/agent surface, read the `claude-api` skill for current model IDs and SDK shapes — do not guess.
+Guardrails, in short: retrieved passages reach the model wrapped as untrusted data; injection-shaped passages are quarantined with a warning rather than dropped; nothing retrieved can write; writes above `APPROVAL_TASK_THRESHOLD` are held for approval; answers are groundedness-checked and scanned for credentials; every write is audited. Full detail and the known gaps: `docs/SECURITY.md`.
+
+When you change the API/agent surface, read the `claude-api` skill for current model IDs and SDK shapes — do not guess. The two tiers configure thinking differently (Haiku takes `budget_tokens`; Sonnet 5.5 rejects it and takes adaptive thinking + effort).
+
+Verify the pipeline with `scripts/rag-check/` — `offline.ts` and `parsers.ts` need no keys; `live.ts` and `shrink.ts` hit the real services in a throwaway Pinecone namespace and clean up after themselves.
 
 ## Working conventions
 
@@ -138,7 +152,10 @@ npm run lint       # next lint
 | Task | Start in |
 |---|---|
 | A new task field | `lib/types.ts` -> `firestore.ts` + `useTaskActions` -> the task views + `TaskDrawer` |
-| A new agent tool | `lib/ai/tools.ts` (schema + executor) -> it is auto-wired into the loop |
+| A new agent tool | `lib/ai/tools.ts` — add the schema to `TOOLS` **and** a case to `executeTool`. Write the description for a model deciding under uncertainty: what it does, when to use it, when *not* to |
+| Retrieval quality | `lib/ai/profiles.ts` (per-job knobs) -> `retrieval.ts` (the loop) -> `fusion.ts`. Tuning table in `docs/AGENTIC_RAG.md` |
+| A new document format | `lib/ai/parsers/` -> route it in `parse.ts`. Return a `ParsedDocument`, never a flat string |
+| Guardrails / limits | `lib/security/` -> `docs/SECURITY.md` |
 | A new project view/tab | `components/views/` (or `project/`) -> add a `ViewTab` in `project/ProjectHeader.tsx` + a branch in `app/(app)/page.tsx` |
 | Task statuses / custom statuses | `constants.ts` (`projectStatuses`, `statusMeta`), `KanbanBoard`/`ListView`, `useProjectStatuses`. See `docs/COLLABORATION.md` |
 | Team roles / AI assignment | `components/project/TeamView.tsx` + `api/assign/route.ts` (server, admin-gated) |

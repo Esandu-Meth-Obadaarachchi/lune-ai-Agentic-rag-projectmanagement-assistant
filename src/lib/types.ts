@@ -387,9 +387,28 @@ export interface RetrievedChunk {
   text: string;
   source: string;
   project?: string;
+  /** Provenance written at ingest, read back for citations. All optional on the
+   *  wire so a vector indexed by the old pipeline still deserialises. */
+  section?: string;
+  /** 1-indexed source page / slide / sheet; 0 when the format has no pages. */
+  page?: number;
+  /** What the chunk is: text, table, code or figure. */
+  element?: string;
+  docId?: string;
 }
 
-export type AgentCardKind = "created_task" | "updated_task" | "task_list" | "sources" | "digest";
+export type AgentCardKind =
+  | "created_task"
+  | "updated_task"
+  | "task_list"
+  | "sources"
+  | "digest"
+  /** The agent stopped to ask a question, with optional options to pick from. */
+  | "clarify"
+  /** The agent asked for an example to match before writing something. */
+  | "example_request"
+  /** A large write is held pending the user's approval. */
+  | "approval";
 
 export interface AgentCard {
   kind: AgentCardKind;

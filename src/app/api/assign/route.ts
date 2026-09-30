@@ -3,7 +3,7 @@ import { adminDb, requireUser } from "@/lib/firebase/admin";
 import { loadProject, loadWorkspace } from "@/lib/ai/server";
 import { anthropic, CLAUDE_MODEL } from "@/lib/ai/anthropic";
 import { recordUsage, withUsage } from "@/lib/ai/usage";
-import { parseFile } from "@/lib/ai/parse";
+import { documentText, parseFile } from "@/lib/ai/parse";
 import { MAX_BRIEF_CHARS } from "@/lib/constants";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Task, TaskPriority } from "@/lib/types";
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     let brief: string;
     if (file) {
       const buffer = Buffer.from(await file.arrayBuffer());
-      brief = (await parseFile(file.name, file.type, buffer)).text;
+      brief = documentText(await parseFile(file.name, file.type, buffer));
     } else {
       brief = String(form.get("text") ?? "");
     }

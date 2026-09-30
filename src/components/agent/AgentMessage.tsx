@@ -6,10 +6,10 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/lib/types";
 import { Logo } from "@/components/ui/Logo";
-import { AgentCards } from "./cards";
+import { AgentCards, type ReplyFn } from "./cards";
 import { cn } from "@/lib/utils";
 
-export function AgentMessage({ message }: { message: ChatMessage }) {
+export function AgentMessage({ message, onReply }: { message: ChatMessage; onReply?: ReplyFn }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -36,7 +36,7 @@ export function AgentMessage({ message }: { message: ChatMessage }) {
             </ReactMarkdown>
           </div>
         )}
-        {message.cards && <AgentCards cards={message.cards} />}
+        {message.cards && <AgentCards cards={message.cards} onReply={onReply} />}
       </div>
     </div>
   );

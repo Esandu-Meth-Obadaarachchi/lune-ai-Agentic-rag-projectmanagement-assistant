@@ -1,5 +1,63 @@
 # Changelog
 
+## RAG v2 — structure-aware ingestion, hybrid retrieval, tiered generation, guardrails
+
+A rebuild of the retrieval and generation pipeline. Full detail in `docs/RAG.md`,
+`docs/AGENTIC_RAG.md` and `docs/SECURITY.md`; the short version of what changed and why.
+
+**Ingestion.** Documents are parsed *with structure* instead of being flattened to a
+string: the PDF parser reconstructs headings from typography, tables from column
+positions and page numbers from the layout, strips running headers, and sends pages
+with no text layer to Claude as a PDF document block for transcription (no
+rasterising, no native dependency, several pages per call). New format support for
+`.xlsx`, `.pptx` (including speaker notes), `.doc`, images, and source code split on
+top-level definitions. Chunking now respects sections, keeps tables and code atomic,
+repeats a table's header across splits, carries a heading breadcrumb into the
+embedded text, sizes in tokens, folds fragments and drops duplicates. Every chunk
+gets a generated sentence situating it in its document (contextual retrieval), paid
+for once at ingest behind a cached prompt prefix.
+
+**Indexing is now idempotent.** Vector ids are `{docId}#{index}` rather than random
+UUIDs, so re-uploading a file replaces it instead of silently doubling it in the
+index. A shrinking document leaves no stale tail: the old vectors are deleted by
+prefix, and the ids beyond the new chunk count are deleted by name afterwards
+(Pinecone's list API lags the write path, so the prefix delete alone can miss what
+it was meant to remove).
+
+**Retrieval.** Optional hybrid search (dense + learned lexical) fused with reciprocal
+rank fusion, cross-encoder rerank, MMR with a per-document cap, and four tuned
+profiles the agent selects itself. The rewrite-then-grade loop is replaced by a
+confidence gate on the reranker's own score: **zero LLM calls on the common path,
+at most two on the recovery path, against a guaranteed two before.** Hybrid is off
+by default because it needs a dotproduct index; everything runs dense-only until
+that is created, so no reindex is required to deploy this.
+
+**Generation.** Per-turn model tiering (fast / reasoned / deep), a system prompt
+split at a prompt-cache breakpoint, conversation memory as a short verbatim window
+over a rolling summary, parallel tool execution, and SSE streaming at
+`/api/chat/stream`. Three new tools let the agent ask rather than guess: `ask_user`
+(with option buttons), `request_example` and `save_example`.
+
+**Caching.** Answer cache (exact + semantic), query-embedding cache and chunk-vector
+cache, over a three-tier store: in-process LRU → Upstash REST → Firestore. Scoped
+per user and per project set, versioned so any write invalidates it immediately.
+
+**Guardrails.** Retrieved passages reach the model wrapped as untrusted data and
+injection-shaped passages are quarantined with a visible warning rather than dropped;
+nothing retrieved can write; bulk task creation above a threshold is held for
+explicit approval (and approval runs the stored plan with no model in the loop);
+`update_task` refuses an ambiguous match instead of editing the wrong task; answers
+are groundedness-checked and scanned for credentials; every write is audited; per-user
+rate limits on chat and ingest. Known gaps are listed in `docs/SECURITY.md`.
+
+**Also:** `GET /api/ready` reports what the deployment actually wired up, the
+Anthropic SDK is upgraded to 0.129 (adaptive thinking), and `scripts/rag-check/`
+holds four verification scripts — two offline, two live and self-cleaning.
+
+**Deploy note:** run `firebase deploy --only firestore:rules` — four new server-only
+collections 403 until the rules are live.
+
+
 Notable changes, newest first. Product name: **Lune AI**.
 
 ## 2026-07-16 — Docs deep-dive
