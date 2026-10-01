@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/firebase/admin";
-import { loadProject } from "@/lib/ai/server";
+import { loadProject, loadWorkspace } from "@/lib/ai/server";
+import { createAssignedTasks } from "@/lib/ai/assignment";
 import { audit } from "@/lib/ai/audit";
 import { isOpen, loadProposal, setProposalStatus } from "@/lib/ai/proposals";
 import { createTaskTree } from "@/lib/ai/tools";
@@ -70,6 +71,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Re-check access now, not only when the plan was proposed.
     const project = await loadProject(user.uid, proposal.projectId);
+
+    if (proposal.kind === "assign_tasks") {
+      // Assigning work needs the same role as proposing it, re-checked now.
+      const { ws } = await loadWorkspace(user.uid, project.workspaceId);
+      const role = ws.members.find((m) => m.uid === user.uid)?.role;
+      if (role !== "owner" && role !== "admin") {
+        return NextResponse.json({ error: "Only an admin or owner can assign work." }, { status: 403 });
+      }
+      await setProposalStatus(proposal.id, "approved");
+      const { count, summary } = await createAssignedTasks({
+        uid: user.uid,
+        userName: user.name ?? "You",
+        project,
+        workspaceMemberIds: ws.memberIds,
+        assignments: proposal.payload.assignments ?? [],
+      });
+      audit(user.uid, "approve_proposal", { proposal: proposal.id, count }, "approval");
+      void bumpDataVersion(user.uid);
+      return NextResponse.json({
+        status: "approved",
+        created: count,
+        message: `Created and assigned ${count} task${count === 1 ? "" : "s"} in ${project.name}.`,
+        tasks: summary,
+      });
+    }
 
     // Marked approved before the writes: a crash halfway through leaves a
     // partial tree the user can see and finish, which is recoverable. Marking

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronDown, ListTodo, MessagesSquare, Plus, Sparkles, Sun } from "lucide-react";
+import { ArrowUp, ChevronDown, FileText, ListTodo, MessagesSquare, Paperclip, Plus, Sparkles, Sun, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
 import {
@@ -15,13 +15,17 @@ import {
   watchChats,
 } from "@/lib/data/firestore";
 import { computeDigest } from "@/lib/data/standup";
-import { postJSON } from "@/lib/api";
+import { authedFetch, postJSON } from "@/lib/api";
 import { MAX_CHAT_INPUT_CHARS } from "@/lib/constants";
 import type { Chat, ChatMessage, Task } from "@/lib/types";
 import { StandupCard } from "@/components/agent/StandupCard";
 import { AgentMessage } from "@/components/agent/AgentMessage";
 import { ChatSidebar } from "@/components/agent/ChatSidebar";
 import { cn } from "@/lib/utils";
+
+/** Briefs the chat can read. Anything parseFile handles works; these are the ones worth offering. */
+const BRIEF_ACCEPT = ".pdf,.txt,.md,.docx,.doc,.rtf,text/plain,application/pdf";
+const MAX_BRIEF_FILE_BYTES = 10 * 1024 * 1024;
 
 const CHIPS = [
   { label: "What's overdue", icon: ListTodo },
@@ -39,6 +43,9 @@ export default function AgentPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [brief, setBrief] = useState<File | null>(null);
+  const [attachError, setAttachError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [chatListOpen, setChatListOpen] = useState(false);
   const [standupOpen, setStandupOpen] = useState(true);
@@ -114,14 +121,33 @@ export default function AgentPage() {
     if (id === currentChatId) startNewChat();
   };
 
+  const onPickBrief = (file: File | undefined) => {
+    setAttachError("");
+    if (!file) return;
+    if (file.size > MAX_BRIEF_FILE_BYTES) {
+      setAttachError("That file is over 10MB.");
+      return;
+    }
+    setBrief(file);
+  };
+
   const send = async (text: string) => {
-    const content = text.trim();
+    // A brief can go with no typed text; its file name stands in for the message.
+    const attached = brief;
+    const content = text.trim() || (attached ? `Assign work from ${attached.name}` : "");
     if (!content || sending || !currentWorkspace || !user) return;
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content, createdAt: Date.now() };
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: attached ? `📎 ${attached.name}\n${content}` : content,
+      createdAt: Date.now(),
+    };
     const pending: ChatMessage = { id: crypto.randomUUID(), role: "assistant", content: "", pending: true, createdAt: Date.now() };
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
     setMessages((prev) => [...prev, userMsg, pending]);
     setInput("");
+    setBrief(null);
+    setAttachError("");
     setSending(true);
 
     // Ensure a saved chat exists — create it on the first message, titled from it.
@@ -137,16 +163,39 @@ export default function AgentPage() {
     }
 
     try {
-      const res = await postJSON<{ answer: string; steps: string[]; sources: unknown[]; cards: unknown[] }>(
-        "/api/chat",
-        { message: content, workspaceId: currentWorkspace.id, projectId: currentProject?.id, history }
-      );
+      let res: { answer: string; steps: string[]; sources?: unknown[]; cards: unknown[] };
+      if (attached) {
+        // A brief takes the assign-and-approve path rather than an agent turn.
+        const form = new FormData();
+        form.append("file", attached);
+        form.append("projectId", currentProject?.id ?? "");
+        if (text.trim()) form.append("text", text.trim());
+        const r = await authedFetch("/api/chat/brief", { method: "POST", body: form });
+        if (!r.ok) {
+          const body = await r.text().catch(() => "");
+          let msg = body;
+          try {
+            msg = (JSON.parse(body) as { error?: string }).error ?? body;
+          } catch {
+            /* plain-text error */
+          }
+          throw new Error(msg || `Request failed (${r.status})`);
+        }
+        res = await r.json();
+      } else {
+        res = await postJSON<typeof res>("/api/chat", {
+          message: content,
+          workspaceId: currentWorkspace.id,
+          projectId: currentProject?.id,
+          history,
+        });
+      }
       const answered: ChatMessage = {
         id: pending.id,
         role: "assistant",
         content: res.answer || "…",
         steps: res.steps,
-        sources: res.sources as never,
+        sources: (res.sources ?? []) as never,
         cards: res.cards as never,
         createdAt: Date.now(),
       };
@@ -266,7 +315,47 @@ export default function AgentPage() {
                 </button>
               ))}
             </div>
+            {(brief || attachError) && (
+              <div className="mb-2 flex items-center gap-2 text-2xs">
+                {brief && (
+                  <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 py-1 pl-2.5 pr-1.5 text-text">
+                    <FileText className="h-3 w-3 shrink-0 text-accent" />
+                    <span className="truncate">{brief.name}</span>
+                    <button
+                      onClick={() => setBrief(null)}
+                      aria-label="Remove brief"
+                      className="grid h-4 w-4 place-items-center rounded-full text-text-faint hover:text-text"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                {brief && !currentProject && (
+                  <span className="text-danger">Open a project first so I know whose team to assign to.</span>
+                )}
+                {attachError && <span className="text-danger">{attachError}</span>}
+              </div>
+            )}
             <div className="flex items-end gap-2 rounded-xl border border-hairline/[0.08] bg-surface-2 p-1.5 focus-within:border-accent/50">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={BRIEF_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  onPickBrief(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={sending}
+                aria-label="Attach a brief"
+                title="Attach a brief (PDF, text, Word) to split into tasks and assign"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text disabled:opacity-40"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -279,12 +368,12 @@ export default function AgentPage() {
                 }}
                 rows={1}
                 maxLength={MAX_CHAT_INPUT_CHARS}
-                placeholder="Ask the brain anything…"
+                placeholder={brief ? "Add instructions for the brief (optional)…" : "Ask the brain anything…"}
                 className="max-h-60 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1.5 text-sm leading-relaxed text-text outline-none placeholder:text-text-faint"
               />
               <button
                 onClick={() => send(input)}
-                disabled={!input.trim() || sending}
+                disabled={(!input.trim() && !brief) || sending}
                 className={cn(
                   "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg transition-all hover:bg-accent-hover disabled:opacity-40",
                   "active:translate-y-px"

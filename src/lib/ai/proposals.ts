@@ -37,12 +37,29 @@ export interface TaskNodeInput {
   subtasks?: TaskNodeInput[];
 }
 
+/** One task from an assigned brief: who, and why that person. */
+export interface AssignedTask {
+  title: string;
+  notes: string;
+  priority: string;
+  assigneeUid: string | null;
+  assigneeName: string | null;
+  assigneePhoto?: string | null;
+  reason: string;
+}
+
+export interface ProposalPayload {
+  tasks: TaskNodeInput[];
+  /** assign_tasks only: the flat, assigned list. */
+  assignments?: AssignedTask[];
+}
+
 export interface Proposal {
   id: string;
   uid: string;
-  /** create_tasks — the only kind so far, but the shape is deliberately open. */
+  /** create_tasks, or assign_tasks for a brief split across the team. */
   kind: string;
-  payload: { tasks: TaskNodeInput[] };
+  payload: ProposalPayload;
   projectId: string;
   projectName: string;
   summary: string;
@@ -75,7 +92,7 @@ export function outline(nodes: TaskNodeInput[] | undefined, depth = 0, limit = 4
 export async function createProposal(input: {
   uid: string;
   kind: string;
-  payload: { tasks: TaskNodeInput[] };
+  payload: ProposalPayload;
   projectId: string;
   projectName: string;
   summary: string;

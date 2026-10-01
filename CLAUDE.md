@@ -11,7 +11,7 @@ Shipped as **Lune AI — Your Personal Workspace** (product name; the codebase/p
 3. **Agent** — a Claude tool-calling agent ("the brain") that reads and writes tasks and searches knowledge. Conversations are saved to Firestore (chat history sidebar). Plus a daily standup.
 4. **Today** (`/today`) — every task due on the focused day across *all* workspaces, plus a per-user day planner (notebook) synced to Firestore. A day picker (prev/next + back-to-today) drives the task list, stats, export and the notebook together; overdue only shows when the focused day is today. Tasks assigned to the current user float to the top of each group.
 5. **Pages** — Notion-style block documents (BlockNote) at workspace or project level, nestable into a page tree.
-6. **Sharing + team** — invite teammates by email with owner/admin/member/viewer roles, scoped to the whole workspace or specific projects. Admins set each member's role/skills per project (Team tab) and can turn a brief or doc into an assigned task list with AI (`/api/assign`). See `docs/COLLABORATION.md`.
+6. **Sharing + team** — invite teammates by email with owner/admin/member/viewer roles, scoped to the whole workspace or specific projects. Admins set each member's role/skills per project (Team tab) and can turn a brief or doc into an assigned task list with AI (`/api/assign`, or by attaching a PDF/text/Word file in the Agent chat via `/api/chat/brief` — held for approval as an `assign_tasks` proposal). See `docs/COLLABORATION.md`.
 
 Full product intent is in `second-brain-app-spec.md` and `second-brain-design-brief.md` at the repo root (source material — not code).
 
@@ -23,7 +23,7 @@ Full product intent is in `second-brain-app-spec.md` and `second-brain-design-br
 | Styling | Tailwind CSS 3.4, CSS-variable tokens | dark default, light fallback |
 | Auth | Firebase Auth (Google) | client SDK; server verifies ID tokens |
 | Database | Cloud Firestore | real-time `onSnapshot`, per-workspace isolation. **Client init forces long-polling** (`initializeFirestore` + `experimentalForceLongPolling` in `lib/firebase/client.ts`) to dodge a WebChannel watch-stream assertion crash |
-| Agent + generation | Anthropic Claude, **tiered per turn** | `CLAUDE_MODEL` (default `claude-haiku-4-5`) for fast/reasoned, `CLAUDE_DEEP_MODEL` (`claude-sonnet-5-5`) for planning turns. Tool-use loop, server-only. Retrieval helpers always run on the fast model |
+| Agent + generation | Anthropic Claude, **tiered per turn** | Everything runs on Haiku (`CLAUDE_MODEL`, default `claude-haiku-4-5`): fast = no thinking, reasoned = thinking budget. The deep tier (`CLAUDE_DEEP_MODEL`) is off by default (`DEEP_MODEL_ENABLED=false`). Tool-use loop, server-only. Retrieval helpers always run on the fast model |
 | Document parsing | `unpdf` (layout PDF), `mammoth` (docx), `xlsx`, `jszip` (pptx), `pdf-lib` (page extraction for OCR) | all pure JS — no native deps, serverless-safe |
 | Cache | in-process LRU → Upstash REST → Firestore | answers (exact + semantic), query embeddings, chunk vectors, rate limits. `GET /api/ready` says which tier is live |
 | Embeddings | Voyage AI (`voyage-3.5`, 1024-dim) | Claude has no embedding model |

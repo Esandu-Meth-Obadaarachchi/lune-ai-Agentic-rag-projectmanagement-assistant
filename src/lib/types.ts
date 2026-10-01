@@ -408,7 +408,9 @@ export type AgentCardKind =
   /** The agent asked for an example to match before writing something. */
   | "example_request"
   /** A large write is held pending the user's approval. */
-  | "approval";
+  | "approval"
+  /** A brief split into tasks with a proposed assignee each, held for approval. */
+  | "assign_approval";
 
 export interface AgentCard {
   kind: AgentCardKind;

@@ -55,6 +55,8 @@ function CardView({ card, onReply }: { card: AgentCard; onReply?: ReplyFn }) {
       return <ExampleRequest data={card.data as { of: string; why?: string | null }} />;
     case "approval":
       return <Approval data={card.data as ApprovalData} onReply={onReply} />;
+    case "assign_approval":
+      return <AssignApproval data={card.data as AssignApprovalData} />;
     case "created_task":
       return <ActionTask data={card.data as TaskLike} label="Created" icon={<CheckCircle2 className="h-3.5 w-3.5 text-done" />} />;
     case "updated_task":
@@ -280,6 +282,80 @@ function Approval({ data, onReply }: { data: ApprovalData; onReply?: ReplyFn }) 
               onClick={() => decide("cancel")}
               disabled={state === "working"}
             >
+              Discard
+            </Button>
+            {error && <span className="text-2xs text-danger">{error}</span>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------ a brief split + assigned, pending approval ------------------------ */
+
+interface AssignApprovalData {
+  proposalId: string;
+  project: string;
+  count: number;
+  tasks: { title: string; priority: string; assignee: string | null; reason: string }[];
+}
+
+/**
+ * A brief the agent has split into tasks and matched to people. Same contract as
+ * `Approval`: nothing exists until the button is pressed, and the server runs the
+ * stored list with no model involved.
+ */
+function AssignApproval({ data }: { data: AssignApprovalData }) {
+  const [state, setState] = useState<"open" | "working" | "approved" | "cancelled">("open");
+  const [error, setError] = useState("");
+
+  const decide = async (action: "approve" | "cancel") => {
+    setState("working");
+    setError("");
+    try {
+      const res = await postJSON<{ status: string }>(`/api/proposals/${data.proposalId}`, { action });
+      setState(res.status === "approved" ? "approved" : "cancelled");
+    } catch (e) {
+      setState("open");
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    }
+  };
+
+  return (
+    <div className="card overflow-hidden border-accent/25">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+        <ListChecks className="h-3.5 w-3.5" /> {data.count} tasks · {data.project} · not yet created
+      </div>
+      <div className="max-h-72 divide-y divide-hairline/[0.06] overflow-y-auto">
+        {data.tasks.map((t, i) => (
+          <div key={i} className="flex items-start gap-2 px-3 py-2">
+            <span className="mt-1.5"><PriorityDot priority={t.priority as never} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-text">{t.title}</div>
+              {t.reason && <div className="text-2xs text-text-faint">{t.reason}</div>}
+            </div>
+            <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-2xs text-text-muted">
+              {t.assignee ?? "Unassigned"}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 border-t border-hairline/[0.08] px-3 py-2">
+        {state === "approved" ? (
+          <span className="inline-flex items-center gap-1 text-2xs text-done">
+            <Check className="h-3.5 w-3.5" /> Created and assigned.
+          </span>
+        ) : state === "cancelled" ? (
+          <span className="inline-flex items-center gap-1 text-2xs text-text-faint">
+            <X className="h-3.5 w-3.5" /> Discarded. Nothing was created.
+          </span>
+        ) : (
+          <>
+            <Button size="sm" variant="primary" onClick={() => decide("approve")} disabled={state === "working"}>
+              {state === "working" ? "Creating…" : `Approve & assign ${data.count} tasks`}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => decide("cancel")} disabled={state === "working"}>
               Discard
             </Button>
             {error && <span className="text-2xs text-danger">{error}</span>}

@@ -369,7 +369,7 @@ interface TaskAuthor {
   userName: string;
 }
 
-function baseTaskDoc(
+export function baseTaskDoc(
   author: TaskAuthor,
   target: ProjectRef,
   fields: {

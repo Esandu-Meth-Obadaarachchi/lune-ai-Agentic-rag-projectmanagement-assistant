@@ -35,10 +35,12 @@ export const settings = {
   /** Rewrite, grade, groundedness, contextualisation, summarising. Always the
    *  cheapest model: these want a short string back, not judgement. */
   claudeFastModel: str("CLAUDE_FAST_MODEL", "claude-haiku-4-5"),
-  /** The escalation tier for planning and judgement turns. Sonnet 5.5 takes
-   *  adaptive thinking and decides per turn whether a question warrants it. */
-  claudeDeepModel: str("CLAUDE_DEEP_MODEL", "claude-sonnet-5-5"),
-  deepModelEnabled: bool("DEEP_MODEL_ENABLED", true),
+  /** The escalation tier for planning and judgement turns. Off by default: every
+   *  turn runs on Haiku, and planning turns get the reasoning budget instead of a
+   *  bigger model. Turning it on needs a model that takes adaptive thinking
+   *  (Haiku 4.5 does not), so set CLAUDE_DEEP_MODEL as well. */
+  claudeDeepModel: str("CLAUDE_DEEP_MODEL", "claude-haiku-4-5"),
+  deepModelEnabled: bool("DEEP_MODEL_ENABLED", false),
   /** Effort on the deep tier. Depth knob on models where `budget_tokens` is gone. */
   deepEffort: str("CLAUDE_DEEP_EFFORT", "medium") as "low" | "medium" | "high",
   deepMaxTokens: num("DEEP_MAX_TOKENS", 8000),
