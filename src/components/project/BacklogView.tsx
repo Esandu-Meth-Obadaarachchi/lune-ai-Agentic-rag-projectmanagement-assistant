@@ -200,7 +200,7 @@ function Backlog({
           </div>
         )}
         <div className="border-t border-hairline/[0.048] px-2">
-          <QuickAdd placeholder="Add to backlog" onAdd={(title) => actions.add(title)} />
+          <QuickAdd placeholder="Add to backlog" onAdd={(title, due) => actions.add(title, due)} />
         </div>
       </div>
     </>

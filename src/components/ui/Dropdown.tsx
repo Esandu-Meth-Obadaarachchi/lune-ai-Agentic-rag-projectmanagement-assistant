@@ -20,14 +20,33 @@ export function Dropdown({
   align = "left",
   width = 200,
   className,
+  onOpenChange,
 }: {
   trigger: (open: boolean) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   width?: number;
   className?: string;
+  /** Fires when the panel opens or closes. Lets a parent that reacts to focus
+   *  leaving it (an input that submits on blur) know the focus went into this
+   *  panel rather than away from the page. */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Latest callback in a ref so the effect below fires on `open` alone and an
+  // inline arrow passed by the parent cannot re-trigger it every render.
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  const mounted = useRef(false);
+  useEffect(() => {
+    // The first run is the initial "closed", which is not a change.
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    openChange.current?.(open);
+  }, [open]);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);

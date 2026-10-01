@@ -11,7 +11,7 @@ import { StatusControl } from "@/components/ui/StatusControl";
 import { TagChip } from "@/components/ui/TagChip";
 import { AssigneePicker, DuePicker, PrioritySelect } from "@/components/task/Pickers";
 import { QuickAdd } from "@/components/task/TaskRow";
-import { cn, taskAssignees } from "@/lib/utils";
+import { cn, hasTextSelection, isInteractiveTarget, taskAssignees } from "@/lib/utils";
 
 type Actions = ReturnType<typeof useTaskActions>;
 
@@ -154,7 +154,7 @@ function StatusGroup({
             <QuickAdd
               autoFocus
               placeholder={`Add task to ${meta.label}`}
-              onAdd={(title) => actions.add(title, { status })}
+              onAdd={(title, due) => actions.add(title, { status, ...due })}
               onCancel={() => setAddingTop(false)}
             />
           </div>
@@ -177,7 +177,7 @@ function StatusGroup({
           <div className={cn("px-2", rows.length > 0 && "border-t border-hairline/[0.048]")}>
             <QuickAdd
               placeholder={`Add task to ${meta.label}`}
-              onAdd={(title) => actions.add(title, { status })}
+              onAdd={(title, due) => actions.add(title, { status, ...due })}
             />
           </div>
         )}
@@ -206,8 +206,12 @@ function Row({
   return (
     <>
       <div
+        onClick={(e) => {
+          if (isInteractiveTarget(e.target) || hasTextSelection()) return;
+          onOpenTask(task);
+        }}
         className={cn(
-          "group flex items-center gap-2.5 pr-3 transition-colors hover:bg-hairline/[0.06]",
+          "group flex cursor-pointer items-center gap-2.5 pr-3 transition-colors hover:bg-hairline/[0.06]",
           !first && "border-t border-hairline/[0.048]",
           isSub && "bg-surface/40"
         )}

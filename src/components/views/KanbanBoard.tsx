@@ -30,7 +30,7 @@ import { useTaskActions } from "@/lib/data/useTaskActions";
 import { addCustomStatus, commitTaskMoves, deleteCustomStatus } from "@/lib/data/firestore";
 import type { Task } from "@/lib/types";
 import { TaskCard } from "@/components/task/TaskCard";
-import { QuickAdd } from "@/components/task/TaskRow";
+import { QuickAdd, type QuickAddDue } from "@/components/task/TaskRow";
 import { Button } from "@/components/ui/Button";
 import { Modal, Field, inputClass } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
@@ -211,7 +211,7 @@ export function KanbanBoard({
             ids={cols[meta.id] ?? []}
             byId={byId}
             onOpenTask={onOpenTask}
-            onAdd={crossProject ? undefined : (title) => actions.add(title, { status: meta.id })}
+            onAdd={crossProject ? undefined : (title, due) => actions.add(title, { status: meta.id, ...due })}
             onDelete={meta.custom ? () => removeStatus(meta) : undefined}
           />
         ))}
@@ -258,7 +258,7 @@ function Column({
   byId: Map<string, Task>;
   onOpenTask: (t: Task) => void;
   /** Omitted in cross-project (My Tasks) boards where there is no target project to add to. */
-  onAdd?: (title: string) => void;
+  onAdd?: (title: string, due: QuickAddDue) => void;
   onDelete?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${meta.id}` });
@@ -311,7 +311,7 @@ function Column({
             <QuickAdd
               autoFocus
               placeholder="New card"
-              onAdd={(title) => onAdd(title)}
+              onAdd={(title, due) => onAdd(title, due)}
               onCancel={() => setAdding(false)}
             />
           </div>

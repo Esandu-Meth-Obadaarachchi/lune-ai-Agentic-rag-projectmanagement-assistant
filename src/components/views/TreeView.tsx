@@ -227,7 +227,7 @@ export function TreeView({
               depth={node.depth + 1}
               autoFocus
               placeholder="Add subtask"
-              onAdd={(title) => actions.addSubtask(node.id, title)}
+              onAdd={(title, due) => actions.addSubtask(node.id, title, due)}
               onCancel={() => setAddingUnder(null)}
             />
           )}
@@ -321,8 +321,8 @@ export function TreeView({
             inputRef={addRef}
             hint="N"
             placeholder="Add task"
-            onAdd={(title) => {
-              actions.add(title);
+            onAdd={(title, due) => {
+              actions.add(title, due);
               reveal();
             }}
           />

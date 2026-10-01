@@ -37,6 +37,7 @@ export function DuePicker({
   onTimeChange,
   onEndTimeChange,
   placeholder = true,
+  onOpenChange,
 }: {
   value?: string | null;
   time?: string | null;
@@ -46,11 +47,13 @@ export function DuePicker({
   onTimeChange?: (time: string | null) => void;
   onEndTimeChange?: (time: string | null) => void;
   placeholder?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   return (
     <Dropdown
       width={272}
       align="right"
+      onOpenChange={onOpenChange}
       trigger={() =>
         value ? (
           <DueDateChip date={value} time={time} status={status} />

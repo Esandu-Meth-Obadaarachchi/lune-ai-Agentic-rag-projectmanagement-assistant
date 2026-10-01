@@ -275,7 +275,7 @@ export function TaskDrawer({
                 </div>
               ))}
             </div>
-            <QuickAdd placeholder="Add subtask" onAdd={(t) => actions.addSubtask(live.id, t)} />
+            <QuickAdd placeholder="Add subtask" onAdd={(t, due) => actions.addSubtask(live.id, t, due)} />
           </div>
 
           {/* dependencies */}

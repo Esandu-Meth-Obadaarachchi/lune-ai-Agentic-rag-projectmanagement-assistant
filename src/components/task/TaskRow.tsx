@@ -15,7 +15,7 @@ import { SubtaskProgress } from "@/components/ui/SubtaskProgress";
 import { TagChip } from "@/components/ui/TagChip";
 import { Dropdown, MenuItem } from "@/components/ui/Dropdown";
 import { AssigneePicker, AssigneeStack, DuePicker, PrioritySelect } from "./Pickers";
-import { cn, taskAssignees } from "@/lib/utils";
+import { cn, hasTextSelection, isInteractiveTarget, taskAssignees } from "@/lib/utils";
 
 export function TaskRow({
   node,
@@ -82,9 +82,28 @@ export function TaskRow({
   // tasks stay a single compact row.
   const hasMeta = Boolean(node.dueDate) || total > 0 || node.tags.length > 0 || assignees.length > 0;
 
+  /**
+   * The whole row opens the task, except the parts that do something else.
+   *
+   * Before, only the small chevron at the far right opened it, which meant
+   * aiming at a 24px target on every single task. Controls and the title input
+   * are excluded (see `isInteractiveTarget`), so renaming, the status dot and
+   * the pickers behave exactly as they did. A modifier-click keeps meaning
+   * "multi-select" rather than "open", so bulk selection is not lost.
+   */
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (isInteractiveTarget(e.target) || hasTextSelection()) return;
+    if (onPick && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+      onPick({ shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey });
+      return;
+    }
+    onOpen();
+  };
+
   return (
     <div
       ref={draggable ? sortable.setNodeRef : undefined}
+      onClick={handleRowClick}
       data-task-row={node.id}
       style={{
         // Driven by --tree-indent so a phone gets a tighter step than a desktop.
@@ -96,7 +115,7 @@ export function TaskRow({
         transition: draggable && !dragging ? sortable.transition : undefined,
       }}
       className={cn(
-        "group flex items-start gap-1 rounded-md pr-1 transition-colors duration-150 sm:items-center sm:gap-1.5 sm:pr-2",
+        "group flex cursor-pointer items-start gap-1 rounded-md pr-1 transition-colors duration-150 sm:items-center sm:gap-1.5 sm:pr-2",
         selected ? "bg-accent/[0.09] ring-1 ring-inset ring-accent/30" : "hover:bg-hairline/[0.045]",
         picked && "bg-accent/[0.09]",
         cursored && !selected && "ring-1 ring-inset ring-hairline/15",
@@ -306,6 +325,14 @@ export function TaskRow({
   );
 }
 
+/** Optional scheduling chosen in the composer, before the task exists. */
+export interface QuickAddDue {
+  dueDate?: string | null;
+  /** HH:MM, 24h. */
+  dueTime?: string | null;
+  dueEndTime?: string | null;
+}
+
 export function QuickAdd({
   depth = 0,
   placeholder = "Add task",
@@ -314,22 +341,39 @@ export function QuickAdd({
   onCancel,
   inputRef,
   hint,
+  due = true,
 }: {
   depth?: number;
   placeholder?: string;
-  onAdd: (title: string) => void;
+  onAdd: (title: string, due: QuickAddDue) => void;
   autoFocus?: boolean;
   onCancel?: () => void;
   /** Lets a parent focus this composer, e.g. from a keyboard shortcut. */
   inputRef?: React.RefObject<HTMLInputElement>;
   /** Key cap shown at rest, e.g. "N". Only pass one that is actually bound. */
   hint?: string;
+  /** Offer a date and time picker on the row. Off where the date is already
+   *  decided by the surface (a calendar day), so it is not asked for twice. */
+  due?: boolean;
 }) {
   const [value, setValue] = useState("");
-  // The live value is mirrored in a ref so `onBlur` never reads a stale render
+  const [date, setDate] = useState<string | null>(null);
+  const [time, setTime] = useState<string | null>(null);
+  const [endTime, setEndTime] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // The live values are mirrored in refs so `onBlur` never reads a stale render
   // closure. Enter used to submit and clear state, then the blur that followed
   // still saw the old value and submitted the same task a second time.
   const valueRef = useRef("");
+  const dueRef = useRef<QuickAddDue>({});
+  dueRef.current = { dueDate: date, dueTime: time, dueEndTime: endTime };
+  const localRef = useRef<HTMLInputElement | null>(null);
+  // True while the date panel is open. Picking a day moves focus into the panel,
+  // which blurs the input — and a blur is how this composer decides you are
+  // done. Without this the first click on the calendar would submit an
+  // unfinished task, or close the composer before you could choose a time.
+  const pickerOpenRef = useRef(false);
 
   const update = (v: string) => {
     valueRef.current = v;
@@ -340,18 +384,37 @@ export function QuickAdd({
   const submit = () => {
     const title = valueRef.current.trim();
     if (!title) return;
+    const chosen = dueRef.current;
     update("");
-    onAdd(title);
+    // Reset the schedule with the title: carrying yesterday's 3pm into the next
+    // task you type is a quiet way to schedule things you did not mean to.
+    setDate(null);
+    setTime(null);
+    setEndTime(null);
+    onAdd(title, chosen);
+  };
+
+  const setPickerState = (open: boolean) => {
+    pickerOpenRef.current = open;
+    setPickerOpen(open);
+    // Closing the panel returns you to typing, which is where you were.
+    if (!open) localRef.current?.focus();
   };
 
   return (
-    <div className="flex items-center gap-1.5 rounded-md transition-colors hover:bg-hairline/[0.045]" style={{ paddingLeft: 8 + depth * 20 }}>
+    <div
+      className="group/qa flex items-center gap-1.5 rounded-md transition-colors hover:bg-hairline/[0.045]"
+      style={{ paddingLeft: 8 + depth * 20 }}
+    >
       <span className="grid h-5 w-5 place-items-center text-text-faint">
         <CornerDownRight className={cn("h-3.5 w-3.5", depth === 0 && "opacity-0")} />
       </span>
       <span className="grid h-4 w-4 place-items-center rounded-full border-[1.5px] border-dashed border-hairline/25" />
       <input
-        ref={inputRef}
+        ref={(el) => {
+          localRef.current = el;
+          if (inputRef) (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+        }}
         autoFocus={autoFocus}
         value={value}
         placeholder={placeholder}
@@ -362,17 +425,53 @@ export function QuickAdd({
             submit();
           }
           if (e.key === "Escape") {
+            // Escape with the panel open is the panel's to handle; the composer
+            // closing underneath it would throw away what you were choosing.
+            if (pickerOpenRef.current) return;
             update("");
+            setDate(null);
+            setTime(null);
+            setEndTime(null);
             onCancel?.();
             (e.target as HTMLInputElement).blur();
           }
         }}
         onBlur={() => {
+          if (pickerOpenRef.current) return;
           submit();
           onCancel?.();
         }}
-        className="flex-1 bg-transparent px-1 py-[7px] text-sm text-text outline-none placeholder:text-text-faint"
+        className="min-w-0 flex-1 bg-transparent px-1 py-[7px] text-sm text-text outline-none placeholder:text-text-faint"
       />
+      {due && (
+        // Mousedown is cancelled on the trigger so clicking it never pulls focus
+        // off the input in the first place. The panel itself is in a portal, so
+        // focus does move once you are inside it — that is what the open flag
+        // above covers.
+        <span
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+          }}
+          className={cn(
+            "shrink-0 transition-opacity",
+            // Quiet until you are here, but never hidden once it holds a value
+            // or is open: a chosen date that vanishes reads as lost.
+            date || pickerOpen
+              ? "opacity-100"
+              : "opacity-100 sm:opacity-0 sm:group-hover/qa:opacity-100 sm:group-focus-within/qa:opacity-100"
+          )}
+        >
+          <DuePicker
+            value={date}
+            time={time}
+            endTime={endTime}
+            onChange={setDate}
+            onTimeChange={setTime}
+            onEndTimeChange={setEndTime}
+            onOpenChange={setPickerState}
+          />
+        </span>
+      )}
       {hint && !value && (
         <kbd className="mono mr-1 hidden shrink-0 rounded border border-hairline/[0.08] bg-hairline/[0.04] px-1.5 py-0.5 text-2xs text-text-faint sm:block">
           {hint}

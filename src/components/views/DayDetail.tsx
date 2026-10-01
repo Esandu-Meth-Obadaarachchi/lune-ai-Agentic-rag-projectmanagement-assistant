@@ -122,6 +122,7 @@ export function DayDetail({
           <QuickAdd
             autoFocus
             placeholder={`Add task on ${format(d, "d MMM")}`}
+            due={false}
             onAdd={(title) => onAdd(title)}
             onCancel={() => setAdding(false)}
           />
