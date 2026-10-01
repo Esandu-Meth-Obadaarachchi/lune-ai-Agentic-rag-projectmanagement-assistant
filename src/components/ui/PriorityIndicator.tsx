@@ -2,10 +2,12 @@ import { priorityMeta } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { TaskPriority } from "@/lib/types";
 
+/* Priority is ambient information: it should be readable at a glance down the
+   column and invisible the rest of the time. Only urgent earns a real colour. */
 const barColor: Record<TaskPriority, string> = {
-  low: "bg-text-faint",
-  med: "bg-info",
-  high: "bg-warn",
+  low: "bg-text-faint/60",
+  med: "bg-text-muted",
+  high: "bg-warn/90",
   urgent: "bg-danger",
 };
 
@@ -28,10 +30,10 @@ export function PriorityIndicator({
         <span
           key={i}
           className={cn(
-            "w-[3px] rounded-full transition-colors",
-            i <= meta.level ? barColor[priority] : "bg-border-strong"
+            "w-[2.5px] rounded-full transition-colors",
+            i <= meta.level ? barColor[priority] : "bg-hairline/[0.09]"
           )}
-          style={{ height: 4 + i * 2 }}
+          style={{ height: 3 + i * 1.75 }}
         />
       ))}
     </span>

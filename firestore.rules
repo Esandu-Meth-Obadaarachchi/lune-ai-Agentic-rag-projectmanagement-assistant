@@ -127,5 +127,39 @@ service cloud.firestore {
     match /usage/{id} {
       allow read, write: if false;
     }
+
+    // ---- RAG / agent server-side collections -------------------------------
+    // All four are written and read exclusively by the Admin SDK from
+    // `src/lib/ai/**`, which bypasses rules. Closing them to clients is the
+    // point rather than an omission, and each has a specific reason.
+
+    // Held plans awaiting the user's approval. A proposal id is a capability to
+    // write tasks, so ownership is checked in code on every load (lib/ai/
+    // proposals.ts) and the client reaches it only through /api/proposals/[id].
+    // Direct client access would let anyone with an id approve someone's plan.
+    match /agentProposals/{id} {
+      allow read, write: if false;
+    }
+
+    // Format examples the user has given the agent to match. Server-only so a
+    // client cannot plant text that later becomes part of a prompt.
+    match /agentExamples/{id} {
+      allow read, write: if false;
+    }
+
+    // The write audit log: who changed what, when. Append-only from the server
+    // and never client-writable, or the record could be edited by the party it
+    // exists to hold accountable.
+    match /agentAudit/{id} {
+      allow read, write: if false;
+    }
+
+    // The durable cache tier (answers, embeddings, chunk vectors, rate-limit
+    // counters) when no Redis is configured. Entries are keyed by user and by
+    // project scope, so client read access would leak other users' answers, and
+    // client writes would let a caller reset their own rate-limit counter.
+    match /agentCache/{id} {
+      allow read, write: if false;
+    }
   }
 }

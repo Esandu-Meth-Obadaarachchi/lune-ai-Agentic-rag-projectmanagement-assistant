@@ -54,7 +54,7 @@ export function CalendarSync() {
           const { url } = await (await authedFetch("/api/calendar/connect")).json();
           if (url) window.location.href = url;
         }}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-1 text-2xs text-text-muted transition-colors hover:border-accent/30 hover:text-accent"
+        className="inline-flex items-center gap-1.5 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-2xs text-text-muted transition-colors hover:border-accent/30 hover:text-accent"
       >
         <CalendarCheck2 className="h-3 w-3" /> Connect Google Calendar
       </button>
@@ -67,7 +67,7 @@ export function CalendarSync() {
         onClick={runSync}
         disabled={busy}
         title="Sync now"
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-1 text-2xs text-text-muted transition-colors hover:text-text"
+        className="inline-flex items-center gap-1.5 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-2xs text-text-muted transition-colors hover:text-text"
       >
         {busy ? (
           <Loader2 className="h-3 w-3 animate-spin" />

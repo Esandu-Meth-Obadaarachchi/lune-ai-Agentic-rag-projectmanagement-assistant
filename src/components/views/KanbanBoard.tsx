@@ -30,7 +30,7 @@ import { useTaskActions } from "@/lib/data/useTaskActions";
 import { addCustomStatus, commitTaskMoves, deleteCustomStatus } from "@/lib/data/firestore";
 import type { Task } from "@/lib/types";
 import { TaskCard } from "@/components/task/TaskCard";
-import { QuickAdd } from "@/components/task/TaskRow";
+import { QuickAdd, type QuickAddDue } from "@/components/task/TaskRow";
 import { Button } from "@/components/ui/Button";
 import { Modal, Field, inputClass } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
@@ -203,7 +203,7 @@ export function KanbanBoard({
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 py-4 sm:snap-none sm:px-4">
+      <div className="flex h-full snap-x snap-mandatory gap-2.5 overflow-x-auto px-3 py-4 sm:snap-none sm:px-4">
         {statuses.map((meta) => (
           <Column
             key={meta.id}
@@ -211,14 +211,14 @@ export function KanbanBoard({
             ids={cols[meta.id] ?? []}
             byId={byId}
             onOpenTask={onOpenTask}
-            onAdd={crossProject ? undefined : (title) => actions.add(title, { status: meta.id })}
+            onAdd={crossProject ? undefined : (title, due) => actions.add(title, { status: meta.id, ...due })}
             onDelete={meta.custom ? () => removeStatus(meta) : undefined}
           />
         ))}
         {currentProject && (
           <button
             onClick={() => setAdding(true)}
-            className="mt-0.5 flex h-8 w-[60vw] shrink-0 snap-start items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 text-2xs text-text-faint transition-colors hover:border-border-strong hover:text-text-muted sm:w-[200px]"
+            className="mt-0.5 flex h-8 w-[60vw] shrink-0 snap-start items-center gap-1.5 rounded-md border border-dashed border-hairline/[0.1] px-2.5 text-2xs text-text-faint transition-colors hover:border-accent/35 hover:text-text-muted sm:w-[186px]"
           >
             <Plus className="h-3.5 w-3.5" /> Add status
           </button>
@@ -226,7 +226,7 @@ export function KanbanBoard({
       </div>
       <DragOverlay dropAnimation={null}>
         {active ? (
-          <div className="w-[272px]">
+          <div className="w-[252px]">
             <TaskCard task={active} dragging />
           </div>
         ) : null}
@@ -258,28 +258,28 @@ function Column({
   byId: Map<string, Task>;
   onOpenTask: (t: Task) => void;
   /** Omitted in cross-project (My Tasks) boards where there is no target project to add to. */
-  onAdd?: (title: string) => void;
+  onAdd?: (title: string, due: QuickAddDue) => void;
   onDelete?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${meta.id}` });
   const [adding, setAdding] = useState(false);
 
   return (
-    <div ref={setNodeRef} className="flex w-[86vw] shrink-0 snap-start flex-col sm:w-[288px] sm:snap-align-none">
+    <div ref={setNodeRef} className="flex w-[86vw] shrink-0 snap-start flex-col sm:w-[266px] sm:snap-align-none">
       <div className="group/col mb-2 flex items-center gap-2 px-1">
         {meta.custom ? (
           <span className="h-2 w-2 rounded-full" style={{ background: meta.hex }} />
         ) : (
           <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
         )}
-        <span className="text-[13px] font-medium text-text">{meta.label}</span>
+        <span className="text-sm font-medium text-text">{meta.label}</span>
         <span className="mono text-2xs text-text-faint">{ids.length}</span>
         <div className="ml-auto flex items-center gap-0.5">
           {onDelete && (
             <button
               onClick={onDelete}
               title="Delete status"
-              className="grid h-5 w-5 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-danger group-hover/col:opacity-100"
+              className="grid h-5 w-5 place-items-center rounded text-text-faint opacity-0 transition-opacity hover:bg-hairline/[0.08] hover:text-danger group-hover/col:opacity-100"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -287,7 +287,7 @@ function Column({
           {onAdd && (
             <button
               onClick={() => setAdding(true)}
-              className="grid h-5 w-5 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
+              className="grid h-5 w-5 place-items-center rounded text-text-faint transition-colors hover:bg-hairline/[0.08] hover:text-text"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -296,8 +296,8 @@ function Column({
       </div>
       <div
         className={cn(
-          "min-h-[120px] flex-1 space-y-2 rounded-lg border border-transparent p-1.5 transition-colors",
-          isOver && "border-accent/25 bg-accent/[0.04]"
+          "min-h-[120px] flex-1 space-y-2 rounded-lg border border-hairline/[0.05] bg-hairline/[0.02] p-1.5 transition-colors duration-200",
+          isOver && "border-accent/30 bg-accent/[0.05]"
         )}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -311,13 +311,13 @@ function Column({
             <QuickAdd
               autoFocus
               placeholder="New card"
-              onAdd={(title) => onAdd(title)}
+              onAdd={(title, due) => onAdd(title, due)}
               onCancel={() => setAdding(false)}
             />
           </div>
         )}
         {ids.length === 0 && !adding && (
-          <div className="grid place-items-center rounded-lg border border-dashed border-border/60 py-6 text-2xs text-text-faint">
+          <div className="grid place-items-center rounded-md border border-dashed border-hairline/[0.09] py-6 text-2xs text-text-faint">
             Drop tasks here
           </div>
         )}

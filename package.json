@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.0",
+    "@anthropic-ai/sdk": "^0.129.0",
     "@blocknote/core": "^0.31.0",
     "@blocknote/mantine": "^0.31.0",
     "@blocknote/react": "^0.31.0",
@@ -26,10 +26,13 @@
     "firebase": "^11.3.0",
     "firebase-admin": "^13.1.0",
     "framer-motion": "^11.18.0",
+    "geist": "^1.7.2",
+    "jszip": "^3.10.2",
     "langsmith": "^0.8.2",
     "lucide-react": "^0.469.0",
     "mammoth": "^1.9.0",
     "next": "14.2.23",
+    "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -37,7 +40,9 @@
     "reactflow": "^11.11.4",
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.6.0",
+    "unpdf": "^0.12.2",
     "uuid": "^11.0.5",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -47,6 +52,7 @@
     "@types/react-dom": "^18.3.5",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^18.0.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.23",
     "postcss": "^8.4.49",

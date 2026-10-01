@@ -69,7 +69,7 @@ export function Dependencies({
           align="right"
           width={280}
           trigger={() => (
-            <span className="ml-auto grid h-5 w-5 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text">
+            <span className="ml-auto grid h-5 w-5 place-items-center rounded text-text-faint hover:bg-hairline/[0.06] hover:text-text">
               <Plus className="h-3.5 w-3.5" />
             </span>
           )}
@@ -81,7 +81,7 @@ export function Dependencies({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Find a task…"
-                className="mb-1 w-full rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[13px] text-text outline-none placeholder:text-text-faint focus:border-accent/40"
+                className="mb-1 w-full rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1.5 text-sm text-text outline-none placeholder:text-text-faint focus:border-accent/40"
               />
               <div className="max-h-[240px] overflow-y-auto">
                 {candidates.length === 0 ? (
@@ -96,7 +96,7 @@ export function Dependencies({
                         onChange([...ids, t.id]);
                         close();
                       }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-text-muted transition-colors hover:bg-hairline/[0.06] hover:text-text"
                     >
                       <span className={cn("shrink-0 text-2xs", statusMeta(t.status).color)}>●</span>
                       <span className="truncate">{t.title}</span>
@@ -116,14 +116,14 @@ export function Dependencies({
           {blockers.map((b) => (
             <div
               key={b.id}
-              className="group flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2 py-1.5"
+              className="group flex items-center gap-2 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1.5"
             >
               <span className={cn("shrink-0 text-2xs", statusMeta(b.status).color)}>●</span>
               <button
                 onClick={() => onOpenTask?.(b)}
                 disabled={!onOpenTask}
                 className={cn(
-                  "flex-1 truncate text-left text-[13px] disabled:cursor-default",
+                  "flex-1 truncate text-left text-sm disabled:cursor-default",
                   b.status === "done" ? "text-text-faint line-through" : "text-text"
                 )}
               >

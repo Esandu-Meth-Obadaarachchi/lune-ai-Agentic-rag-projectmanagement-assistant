@@ -1,6 +1,6 @@
 # RAG + the agent — how Lune AI's brain works
 
-This is the full teaching walkthrough of Lune AI's retrieval-augmented generation (RAG) system and the agent that sits on top of it: **what** each piece is, **how** it works, and **why** it was built that way. Read `docs/AGENTIC_RAG.md` next for the deep dive on the retrieval loop specifically.
+The full walkthrough of Lune AI's retrieval-augmented generation system and the agent on top of it: **what** each piece is, **how** it works, and **why** it was built that way. `docs/AGENTIC_RAG.md` goes deeper on the retrieval loop and the agent; `docs/SECURITY.md` covers the guardrails.
 
 ---
 
@@ -8,247 +8,292 @@ This is the full teaching walkthrough of Lune AI's retrieval-augmented generatio
 
 A user asks a question. We do not send that question straight to the language model and hope. Instead:
 
-1. **Retrieval** finds the handful of document passages most likely to answer it (from the user's uploaded docs).
-2. **Generation** hands those passages plus the question to Claude, which writes a grounded answer and can also read/write the user's tasks.
+1. **Retrieval** finds the handful of document passages most likely to answer it.
+2. **Generation** hands those passages plus the question to Claude, which writes a grounded answer and can also read and write the user's tasks.
 
 RAG = *retrieve the right context, then generate*. The model's job shifts from "remember everything" to "reason over what we handed it". That is what makes answers accurate and citable instead of confidently wrong.
 
-Two model families do the work, because they are good at different things:
+Three models do the work, because they are good at different things:
 
 | Job | Model | Why |
 |---|---|---|
-| Turn text into vectors (embeddings) | **Voyage `voyage-3.5`** (1024-dim) | Claude has no embedding endpoint. Voyage is Anthropic's recommended embedding partner. |
+| Turn text into vectors | **Voyage `voyage-3.5`** (1024-dim) | Claude has no embedding endpoint. |
 | Score (query, passage) relevance | **Voyage `rerank-2.5`** (cross-encoder) | A dedicated reranker is far more precise than raw vector similarity. |
-| Read, reason, write the answer, call tools | **Claude** (`CLAUDE_MODEL`, default `claude-haiku-4-5`) | The generative "brain". |
+| Lexical / rare-token matching | **`pinecone-sparse-english-v0`** | A learned sparse model. Optional — see §4. |
+| Read, reason, answer, call tools | **Claude** — tiered per turn | See §7. |
 
 ---
 
-## 1. Why this architecture
+## 1. The whole pipeline
 
-**Why split embeddings and generation across two vendors?** Because retrieval and generation are different problems. Embeddings need a model trained to place similar *meanings* near each other in vector space; generation needs a model trained to reason and write. Claude is excellent at the second and does not expose the first, so we pair it with Voyage. Keeping them separate also means we can swap either side without touching the other.
+Two paths. The **write path** runs at upload, where nobody is waiting, so it can afford to be expensive. The **read path** runs while a user watches a cursor blink, so every step has to earn its latency.
 
-**Why RAG at all instead of stuffing everything into the prompt?** Two reasons: cost and accuracy. Sending an entire document library on every question is expensive and dilutes the model's attention. Retrieving only the relevant 4 passages keeps the prompt small, cheap, and focused, and lets us cite exactly what the answer came from.
+```mermaid
+flowchart TB
+  subgraph W["WRITE PATH — ingest (offline, expensive, runs once per document)"]
+    direction TB
+    U["Upload<br/>pdf · docx · xlsx · pptx · md · csv · json · code · image"]
+    --> P["parse.ts — route on extension, then MIME"]
+    P --> PA["Structure-aware parsers<br/>headings · tables · code · figures · page numbers"]
+    PA -->|"page has no text layer"| V["vision.ts — Claude reads the pages<br/>as a PDF document block (no rasterising)"]
+    V --> PA
+    PA --> IR["ParsedDocument<br/>ordered DocElement tree"]
+    IR --> C["chunker.ts<br/>section-bounded · breadcrumbs · atomic tables<br/>token budget · merge small · drop duplicates"]
+    C --> CTX["contextualize.ts<br/>one situating sentence per chunk<br/>document cached as prompt prefix"]
+    CTX --> E1["Voyage embed (dense)"]
+    CTX --> E2["Pinecone sparse embed (lexical)"]
+    E1 --> UP["Pinecone upsert<br/>id = docId#chunkIndex → re-upload replaces"]
+    E2 --> UP
+  end
 
-**Why per-project isolation?** Each project owns its own slice of the vector store (a Pinecone *namespace*). A question scoped to one project can never surface another project's documents. This is both a product feature (clean separation) and a security boundary (see §6).
+  subgraph R["READ PATH — a question (online, latency-critical)"]
+    direction TB
+    Q["POST /api/chat · /api/chat/stream"] --> AUTH["requireUser — verify Firebase ID token"]
+    AUTH --> RL["rate limit · sanitise input"]
+    RL --> CA{"answer cache<br/>exact, then semantic"}
+    CA -->|hit| OUT["answer + sources + cards"]
+    CA -->|miss| SC["loadUserScope — every project<br/>gated by memberIds"]
+    SC --> RT["router.ts — pick tier<br/>fast · reasoned · deep"]
+    RT --> AG["agent loop — Claude + tools<br/>cached system prompt"]
+    AG <--> T["tools.ts<br/>search_knowledge · list_tasks · create_task(s)<br/>update_task · summarize_project<br/>ask_user · request_example · save_example"]
+    T -->|search_knowledge| RET["retrieval.ts"]
+    AG --> GR["groundedness check"]
+    GR --> RED["secret redaction"]
+    RED --> OUT
+    OUT --> BG["after the response:<br/>cache the answer · refresh the rolling summary"]
+  end
+
+  subgraph RET2["RETRIEVAL — inside search_knowledge"]
+    direction TB
+    QQ["query"] --> PAR["embed dense + lexical in parallel"]
+    PAR --> FAN["fan out across every project namespace in parallel"]
+    FAN --> RRF["reciprocal rank fusion"]
+    RRF --> RR["cross-encoder rerank"]
+    RR --> MMR["maximal marginal relevance + per-document cap"]
+    MMR --> GATE{"confidence gate<br/>on the rerank score"}
+    GATE -->|"≥ 0.50 confident"| DONE["return"]
+    GATE -->|"0.22 – 0.50 — one LLM grade"| DONE
+    GATE -->|"< 0.22 weak"| RW["rewrite the query, retry once"]
+    RW --> PAR
+  end
+
+  UP -.->|"Pinecone, one namespace per project"| FAN
+  RET -.-> QQ
+```
 
 ---
 
-## 2. The ingestion pipeline — getting documents in
+## 2. Why this architecture
 
-Route: `POST /api/ingest` (`src/app/api/ingest/route.ts`). Flow:
+**Why split embeddings and generation across two vendors?** Retrieval and generation are different problems. Embeddings need a model trained to place similar *meanings* near each other in vector space; generation needs a model trained to reason and write. Claude is excellent at the second and does not expose the first. Keeping them separate also means either side can be swapped without touching the other.
 
-```
-file or pasted text
-  -> parse        (extract plain text)
-  -> chunk        (split into ~1000-char overlapping pieces)
-  -> embed        (Voyage: each chunk -> a 1024-number vector)
-  -> upsert       (store vectors in the project's Pinecone namespace)
-```
+**Why RAG at all instead of stuffing everything into the prompt?** Cost and accuracy. Sending an entire document library on every question is expensive and dilutes the model's attention. Retrieving the relevant handful keeps the prompt small, cheap and focused, and lets us cite exactly what the answer came from.
 
-### 2.1 Parsing — `src/lib/ai/parse.ts`
-
-Turn any upload into plain UTF-8 text:
-- **PDF** → `pdf-parse`
-- **DOCX** → `mammoth` (`extractRawText`)
-- **Markdown / code / txt / csv / json** → read as raw UTF-8
-
-The `type` (pdf/docx/markdown/code/text) is stored as metadata so the UI and the model know what a chunk came from.
-
-### 2.2 Chunking — `src/lib/ai/chunker.ts`
-
-**What:** a *recursive character splitter*, ~**1000 characters per chunk with 200 characters of overlap** (a 20% overlap).
-
-**How:** it walks the text in ~1000-char windows, but before cutting it tries to break on the *nicest* separator available inside the window, in priority order: paragraph break (`\n\n`) → line break (`\n`) → sentence end (`. `) → space → hard cut. It only accepts a separator past the halfway point of the window, so chunks stay a sensible size instead of collapsing to tiny fragments.
-
-**Why chunk at all?** Embedding models have an input limit and, more importantly, a *whole document* embedded as one vector is a blurry average of everything in it — you lose the ability to pinpoint the one relevant paragraph. Smaller chunks give sharper, more targeted matches.
-
-**Why overlap?** Because a fact can straddle a boundary. If chunk A ends "...the deadline is" and chunk B starts "the 14th of March", neither alone answers "when is the deadline?". Overlapping the last 200 characters of A into the start of B means the complete sentence lives in at least one chunk. The cost is mild duplication in the store; the benefit is not losing facts at the seams. 20% is a common sweet spot: enough to catch boundary-spanning facts, not so much that the index bloats.
-
-**Why break on separators instead of a blind cut?** A chunk that ends mid-word or mid-sentence embeds poorly (the vector represents a fragment of an idea). Breaking on paragraph/sentence boundaries keeps each chunk a coherent unit of meaning.
-
-### 2.3 Embeddings — `src/lib/ai/voyage.ts`
-
-**What:** `voyage-3.5`, output forced to **1024 dimensions** (`output_dimension: 1024`).
-
-**How:** each chunk becomes a list of 1024 floating-point numbers — a point in 1024-dimensional space where semantically similar text lands nearby. Documents are embedded in **batches of 96** (`embedDocuments`) to respect API limits; a search query is embedded one at a time (`embedQuery`).
-
-**Why the `input_type` distinction (`document` vs `query`)?** Voyage embeds documents and queries with slightly different instructions so that a short question and the longer passage that answers it land close together despite their different shape and length. Ingestion uses `input_type: "document"`; search uses `input_type: "query"`. Getting this wrong quietly hurts recall.
-
-**Why 1024 dimensions?** More dimensions capture more nuance but cost more storage and compute; fewer are cheaper but coarser. 1024 is a strong balance for this size of corpus, and it must match the Pinecone index exactly.
-
-### 2.4 Vector store — `src/lib/ai/pinecone.ts`
-
-**What:** one Pinecone index, **dimension 1024, metric cosine**, with **one namespace per project** (`project.ragNamespace`, a slug of workspace + project name).
-
-**How:** `upsertChunks` writes vectors (in batches of 100) into the project's namespace. Each vector carries metadata: the original `text`, the `source` filename, the `project` name, the `type`, and `uploadedAt`. Storing the text alongside the vector means retrieval returns the passage directly — no second lookup.
-
-**Why cosine?** Cosine similarity measures the *angle* between two vectors, i.e. how aligned their directions are, ignoring magnitude. For text embeddings, direction encodes meaning, so cosine is the natural fit (and it must match how the embedding model was trained).
-
-**Why namespaces instead of one big pool with a project filter?** Namespaces are a hard partition inside the index. Searching a namespace physically cannot return another namespace's vectors, so isolation is structural, not a filter you might forget to apply. It is also faster — you search a smaller space.
+**Why is the write path allowed to be slow?** Because it is offline. OCR, figure captioning and per-chunk contextualisation all happen once, at upload, and every question asked afterwards inherits the quality for free. The single most common mistake in a RAG system is doing at query time what could have been done at ingest time.
 
 ---
 
-## 3. The retrieval pipeline — finding the right passages
+## 3. The write path
 
-This is the heart of RAG, and Lune AI runs an **agentic loop** rather than a single fetch. Full detail in `docs/AGENTIC_RAG.md`; the summary:
+### 3.1 Parsing — structure, not a string
 
-```
-question
-  -> rewrite      (Haiku turns the question into a search-optimised query)
-  -> retrieve     (embed + Pinecone across allowed namespaces — a WIDE net of 20)
-  -> rerank       (rerank-2.5 cross-encoder scores each pair, keep the best 4)
-  -> grade        (Haiku: do these passages actually answer it? good | weak)
-        weak, attempts < 2 -> rewrite from a new angle and retry
-  -> generate     (the agent writes the answer on CLAUDE_MODEL)
-  -> self-check    (Haiku: is every claim supported by the sources?)
-```
+The old pipeline flattened every document to one string. That is the biggest quality loss available in a RAG system: without structure you cannot keep a table intact, you cannot tell a chunk which section it came from, and you cannot cite a page.
 
-### 3.1 The one concept that matters most: bi-encoder vs cross-encoder
+Every parser now returns a `ParsedDocument` — an ordered list of typed elements (`heading`, `paragraph`, `list`, `table`, `code`, `figure`), each knowing its level and page.
 
-- A **bi-encoder** (the embedding search) encodes the query and each document *separately* into vectors, then compares them by cosine. It is fast — you can pre-compute every document vector once — and it powers the first-stage "wide net". But because it never looks at the query and document *together*, it is only approximately right.
-- A **cross-encoder** (the reranker) takes a `(query, document)` pair and runs them through the model *together*, so it can weigh exactly how well this document answers this query. It is far more precise, but you cannot pre-compute it — you must run one model pass per candidate, so it is too slow to run over the whole corpus.
-
-The winning pattern, used here, is **two-stage retrieve-then-rerank**: use the cheap bi-encoder to pull a wide net of ~20 candidates (optimise *recall* — get the right passage in there somewhere), then use the expensive cross-encoder to reorder them and keep the best 4 (optimise *precision* — put the right passage at the top). This is the single biggest accuracy lever after chunking.
-
-### 3.2 Scope and security — cross-workspace, but membership-gated
-
-The agent searches **every project the user can access, across all their workspaces** (`loadUserScope` in `src/lib/ai/server.ts`). `queryNamespaces` fans out across those namespaces and merges results by score. Crucially, "can access" is gated by `memberIds`: a user only ever sees projects whose `memberIds` include their uid, so a teammate scoped to specific projects can never retrieve another project's knowledge through the chatbot. Access is broad (all your workspaces); isolation never leaks. See §6.
-
----
-
-## 4. Generation — the agent tool loop
-
-Retrieval is only half the system. The other half is the **agent**: a Claude tool-use loop (`src/lib/ai/agent.ts`) that can search knowledge *and* read/write tasks.
-
-### 4.1 How a tool-use loop works
-
-```
-1. Send: system prompt + tool schemas + conversation.
-2. Claude replies. If it wants to act, it returns tool_use block(s) (stop_reason "tool_use").
-3. We execute each tool, append the results, and loop back to step 1.
-4. When Claude returns text with no tool_use, that is the final answer.
-```
-
-The tools (`src/lib/ai/tools.ts`):
-
-| Tool | What it does |
+| Format | What is recovered |
 |---|---|
-| `search_knowledge` | Runs the agentic retrieval loop over the allowed namespaces |
-| `list_tasks` | Lists tasks across all the user's workspaces; filters by project, **assignee**, **parent (subtasks-of)**, status or time; each row carries its assignee + parent |
-| `create_task` | Creates one task |
-| `create_tasks` | Creates many tasks / a nested subtask tree in one call, with exact parent-child links |
-| `update_task` | Updates a task by title |
-| `summarize_project` | Tasks + top knowledge for a project |
+| **pdf** | Headings from typography, tables from column positions, page numbers, running headers stripped, scanned pages OCR'd |
+| **docx** | Heading styles, tables, lists — via mammoth's HTML conversion, not raw text |
+| **xlsx** | One section per sheet, each sheet a Markdown table |
+| **pptx** | One section per slide, tables, **speaker notes** (usually where the argument actually is) |
+| **md** | Native structure: headings, fenced code, pipe tables |
+| **csv / json** | Rendered as tables where the shape allows; quoted fields handled |
+| **code** | Split on top-level definitions, one element per symbol, the symbol name as its heading |
+| **images** | Transcribed *and* described by Claude vision |
 
-Tool executors accumulate `sources`, `cards` and `steps` on a shared `ToolContext`, which the route returns so the UI can render structured cards (task lists, created tasks, sources) instead of only prose.
+The PDF parser is the interesting one. It reads the text layer *with positions*, which is enough to reconstruct:
 
-### 4.2 Why `create_tasks` (the batch tool) exists
+- **Lines** — glyph runs grouped by baseline, ordered left to right, so a two-column page does not interleave into nonsense.
+- **Headings** — a line set larger than the page's body text, short, not ending in a full stop. Its size relative to the document's other heading sizes gives it a level, so the heading tree comes out of typography rather than guesswork.
+- **Tables** — a run of consecutive lines whose text starts at the same handful of x positions. Columns are recovered from those positions and emitted as a Markdown table.
+- **Furniture** — a line appearing at the same height on most pages is a running header. Indexing it once per page fills the index with the document's own title answering every question.
 
-Every task and subtask is one write. Building a 10-task tree with subtasks is ~50 operations. On Haiku with a bounded output budget, the model cannot emit 50 tool calls — it would create the top-level tasks and stop. `create_tasks` lets the model send the whole nested tree in a single call; the server creates it recursively, threading the real parent id so nesting is exact (no fragile title-matching). This is both a reliability fix and the correct way to express hierarchy.
+**Scanned pages.** A page with an empty text layer is a scan. Rather than rasterising it (which in Node means pdf.js plus a native canvas binding — heavy, platform-specific, wrong for a serverless function), the pages are extracted into a small PDF with `pdf-lib` and sent to Claude as a **document block**, which the API reads natively including its embedded images. That is pure JS, needs no rendering, and lets four pages ride in one call instead of one call per page.
 
-### 4.3 Cost caps (`agent.ts`)
+### 3.2 Chunking — the biggest lever after parsing
 
-- `MAX_ANSWER_TOKENS = 1024` — ceiling on generated output per reply. Output tokens are the expensive side.
-- `MAX_TOOL_ROUNDS = 6` — ceiling on loop iterations, with headroom for a big `create_tasks` build.
-- Only the **last 5 conversation turns** are sent to the model each request; the full history lives in Firestore. This keeps the input prompt small and cheap.
-- `MAX_CHAT_INPUT_CHARS = 2000` bounds a single user message (enforced in the composer and again server-side).
+The old chunker was a 1000-character sliding window. It had no idea what it was cutting: a table lost its header halfway down and became a column of numbers; a paragraph three sections deep carried no clue which section it came from, so a chunk reading *"the interval moves to six months"* matched nothing, because the sentence naming the subject sat in a heading two elements earlier.
 
-### 4.4 Handling truncation and errors
+The new chunker works on the element tree:
 
-If the model is cut off mid-response (`stop_reason: "max_tokens"` — usually a `create_tasks` call too big for one turn), the loop detects it and returns a clear "that was too much, split it into smaller batches" message instead of a blank reply. Tool executions that throw are surfaced in the action trace (`⚠️ tool failed: …`) and marked `is_error` to the model. An empty answer falls back to a readable message. Silence is never an acceptable outcome.
-
-### 4.5 Why "thinking" is off and reasoning is hidden
-
-Extended thinking would add latency and cost. Instead the persona prompt (`src/lib/ai/persona.ts`) instructs Claude to reply with final answers only; the tool-call trace is surfaced separately as collapsible **steps**, so the user still sees *what* the agent did without the model narrating its reasoning into the chat.
-
----
-
-## 5. The cost model — where the money goes
-
-Understanding this is core to being an AI engineer: you pay per token, split into input and output, and output is pricier.
-
-| Lever | Where | Effect |
+| Property | What it does | Why |
 |---|---|---|
-| Generation model | `CLAUDE_MODEL` env (default Haiku `$1/$5` per 1M in/out) | The single biggest driver. Opus is ~5× the cost of Haiku. |
-| Output cap | `MAX_ANSWER_TOKENS` 1024 | Bounds the expensive side per reply. |
-| Tool rounds | `MAX_TOOL_ROUNDS` 6 | Each round re-sends the growing context (input tokens). |
-| History window | last 5 turns | Caps input tokens from conversation. |
-| Retrieval context | 4 chunks × 500 chars | Fewer/shorter passages = smaller prompt. |
-| Retry ceiling | `MAX_ATTEMPTS` 2 | Bounds the cheap Haiku helper calls. |
+| **Sections** | A chunk never crosses a heading boundary | Two adjacent sections are two different subjects; merging dilutes both embeddings |
+| **Breadcrumbs** | `spec.pdf > Data pipeline > Charts` is prepended to the *embedded* text | The cheapest recall win available, and free at query time |
+| **Atomicity** | Tables, code and figures emitted whole; an oversized table splits by rows **with its header repeated** | `\| 99.4 \| 2 \|` answers nothing |
+| **Token budget** | Sizes in tokens, not characters | A table of numbers and a paragraph of prose have wildly different tokens per character |
+| **Merge small** | Fragments fold into their neighbour in the same section | Six-word fragments are noise that crowd out real results |
+| **Deduplicate** | Byte-identical chunks indexed once | Boilerplate otherwise occupies four slots in a top-5 with one passage's worth of information |
+| **Overlap** | Within a section only | Overlapping across a heading duplicates content into a chunk about a different subject |
 
-The retrieval *helper* steps (rewrite, grade, groundedness) always run on **Haiku** regardless of the generation model — they only need a short answer, so paying Opus rates for them would be waste. A single knowledge question adds a few small Haiku calls plus one Voyage rerank on top of the embed + Pinecone query.
+One deliberate detail: a chunk has a `text` (what the model reads and the UI shows) and an `embedText` (text + breadcrumb + generated context). Keeping them apart means retrieval context never leaks into a quoted answer; deriving the second from the first means the two cannot drift.
 
----
+### 3.3 Contextual retrieval
 
-## 6. Security and isolation
+A chunk pulled out of a document loses the context that made it meaningful. *"The interval moves to six months after the firmware upgrade"* is unsearchable on its own — nothing in it says rectifiers, Galle, or 2026.
 
-Every task/project/workspace/knowledge boundary is enforced by `memberIds`:
+So at ingest, Claude writes one or two sentences per chunk situating it in its document, and those are prepended to the embedded text.
 
-- Firestore documents carry `memberIds`; `firestore.rules` gates every read/write on `request.auth.uid in memberIds`.
-- The agent runs server-side with the Firebase Admin SDK, which **bypasses** those rules — so it re-checks membership in code. `loadUserScope` only loads workspaces/projects where the uid is in `memberIds`, and `list_tasks` queries `where("memberIds", "array-contains", uid)`.
-- Because knowledge namespaces map 1:1 to projects, and the agent only ever searches the user's accessible projects' namespaces, RAG inherits the same isolation.
+The obvious objection is cost: sending the whole document with every chunk is quadratic. **Prompt caching removes it.** The document goes in a cached system block, so the first chunk pays to write the cache and every chunk after it reads it at a fraction of the input price. A fifty-page document costs cents.
 
-The net guarantee: access is as broad as the user's real membership (all their workspaces), and never one document wider.
+*(Caveat: a model will not cache a prefix below its minimum cacheable length, so a short document pays full price per chunk. That is fine — a short document has few chunks — but the cache counters read zero on small files, which is expected rather than a misconfiguration.)*
 
----
+### 3.4 Idempotent indexing
 
-## 7. Observability — LangSmith
+Vector ids are `{docId}#{chunkIndex}`, where `docId` is a hash of (project, filename). Three consequences:
 
-The Anthropic client is wrapped with LangSmith (`wrapAnthropic` in `src/lib/ai/anthropic.ts`). It is a no-op unless `LANGSMITH_TRACING=true` and a key are set, so it is always safe to leave in. When on, every model call in the agent and the retrieval loop is traced — you can inspect the rewritten query, the grade verdict, the groundedness check, and the full tool loop for any request. This is how you debug a RAG system: you look at what was actually retrieved and how the model reasoned over it.
-
----
-
-## 8. Design choices and trade-offs
-
-- **No LangChain / LangGraph.** The agent calls the Anthropic SDK directly. The loop is ~120 readable lines in `agent.ts`; a framework would add weight and indirection without buying anything here. LangSmith gives the observability people usually reach for LangChain to get.
-- **Manual tool loop, not a hosted agent.** We own the loop, so we own the cost caps, the truncation handling, and the exact tools. Full control, no black box.
-- **Per-project namespaces, not one pool + metadata filter.** Structural isolation beats a filter you can forget.
-- **Two-stage retrieve-then-rerank, not top-k vector search alone.** Precision matters more than a slightly cheaper query.
-- **Cheap model by default, configurable up.** Haiku handles most questions; `CLAUDE_MODEL` swaps to Opus/Sonnet for hard ones without a code change.
-- **Store the chunk text in the vector metadata.** Trades a little storage for one fewer round-trip on every retrieval.
+1. **Re-uploading a file replaces it.** The old pipeline used a random UUID per chunk, so every re-upload silently doubled the document in the index — and a doubled document wins every search against itself.
+2. **A shrinking document leaves no stale tail.** The previous version's vectors are deleted by id prefix before the new ones land, *and* the ids beyond the new chunk count are deleted explicitly by name afterwards. The second step exists because Pinecone's list API lags the write path by seconds — measured, not assumed — so a prefix delete issued right after an upsert can miss what it was meant to remove. Deleting by id is immediately consistent.
+3. **Provenance travels.** Every vector carries its section path, page number, element kind and content hash, so a retrieved chunk can say where it came from.
 
 ---
 
-## 9. Fixes and lessons (real bugs, and why they happened)
+## 4. Hybrid search — dense + lexical
 
-- **Per-project scope was not enforced in the agent.** The chat route originally loaded every project in the *workspace*, so a scoped member could read another project's knowledge. Fixed by filtering to the user's `memberIds` projects — a reminder that admin-SDK code must re-implement the checks that Firestore rules would otherwise enforce.
-- **Chat history loaded blank.** `loadChatMessages` queried by `chatId` only. Firestore rules are *not* filters — a list query must itself be constrained to what the rules allow (`memberIds array-contains uid`), or it is rejected outright. Fixed by querying on `memberIds` and narrowing to the chat in JS.
-- **Agent created top-level tasks but not subtasks.** ~50 separate `create_task` calls exceeded the tool-round / token budget. Fixed with the `create_tasks` batch tool.
-- **Silent "…" on an over-long request.** A too-big tool call hit `max_tokens`, the loop treated the truncated response as "no tool call", and returned an empty string. Fixed by detecting `max_tokens` and returning an actionable message.
-- **Agent could not answer "assigned to X" or "subtasks of Y".** `list_tasks` was dropping the assignee and parent fields and had no filter for them. Fixed by returning both and adding `assignee` / `under` filters.
+Dense retrieval fails in a specific, predictable way: **rare tokens.** `RX-4471`, `BMPC 2026`, `kWh/kWp`, a surname, a ticket id — none of these have a meaningful position in embedding space, so a bi-encoder returns three paragraphs about rectifiers in general and misses the one naming the unit. A lexical index catches exactly those, and misses the paraphrases dense catches. Running both is why hybrid beats either alone on a corpus of work documents full of names, codes and acronyms.
 
-The through-line: most RAG/agent bugs are not the model being dumb — they are *plumbing* (wrong query shape, dropped fields, budget limits, missing re-checks). Read the traces, check the data shape.
+`pinecone-sparse-english-v0` is a *learned* sparse model rather than plain BM25, so it also expands terms (a query for "faults" matches "alarm") with no corpus-wide IDF table to fit and persist.
+
+**This is off by default.** Hybrid records need a `dotproduct` Pinecone index, and the live index is `cosine` — a property that cannot be changed in place. With `HYBRID_SEARCH_ENABLED=false` the lexical leg is skipped entirely and everything runs dense-only, exactly as before, so nothing has to be reindexed to deploy this. To turn it on: create a dotproduct index, point `PINECONE_INDEX_NAME` at it, set the flag, and re-ingest.
 
 ---
 
-## 10. Where the code lives
+## 5. Fusion and diversity
 
-| File | Role |
-|---|---|
-| `src/app/api/ingest/route.ts` | Ingestion endpoint |
-| `src/lib/ai/parse.ts` | Document parsing (pdf/docx/text) |
-| `src/lib/ai/chunker.ts` | Recursive character splitter |
-| `src/lib/ai/voyage.ts` | Embeddings (`embedDocuments`/`embedQuery`) + `rerank` |
-| `src/lib/ai/pinecone.ts` | Vector upsert + `queryNamespace(s)` |
-| `src/lib/ai/retrieval.ts` | The agentic retrieval loop (see `docs/AGENTIC_RAG.md`) |
-| `src/lib/ai/tools.ts` | Agent tool schemas + executors |
-| `src/lib/ai/agent.ts` | The Claude tool-use loop, cost caps, truncation handling |
-| `src/lib/ai/persona.ts` | The agent's system prompt |
-| `src/lib/ai/anthropic.ts` | Anthropic client + LangSmith wrap + `complete()` helper |
-| `src/lib/ai/server.ts` | `loadUserScope` / `loadProject` (membership-checked loads) |
-| `src/app/api/chat/route.ts` | Chat endpoint — assembles the tool context and runs the agent |
+**Reciprocal rank fusion** merges the two result lists. It works on *positions*, not scores, because the two scales are not comparable at all: a cosine similarity lives in [0, 1] while a learned sparse dot product is unbounded. Weighting raw scores would let the lexical leg swamp the dense one; RRF only asks "how high did each list rank this", so a passage ranked first by either leg is guaranteed to survive.
 
-Always check the `claude-api` skill for the current model ids and SDK shapes before editing this layer — do not guess.
+**Cross-encoder reranking** is the single biggest precision lever. The embedding search compares two vectors built independently, so it knows a passage is about the same topic but not whether it *answers the question*. A cross-encoder reads query and passage together, which is what separates "mentions rectifiers" from "says what the interval is".
 
-## 11. Tuning knobs (quick reference)
+**Maximal marginal relevance** picks the final set. A reranker sorted purely by relevance will happily return five near-identical chunks from the same section, which reads as five sources and is really one. MMR trades a little relevance for coverage. The **per-document cap** expresses a diversity MMR cannot: a question answered five times over from one file has *one* source, and the citations should say so.
 
-| Knob | Where | Default | Raise to… |
+---
+
+## 6. Retrieval profiles
+
+"Find me the rectifier's serial number" and "summarise this project" are not the same retrieval problem. One set of constants tuned to serve both serves neither.
+
+| Profile | Candidates | Keep | λ | Per-doc cap | Grade | Rewrite | For |
+|---|---|---|---|---|---|---|---|
+| `lookup` | 20 | 5 | 0.82 | — | yes | yes | One specific fact. Lexical leg weighted up |
+| `explore` | 40 | 8 | 0.55 | 3 | yes | yes | Open and comparative questions |
+| `summarize` | 45 | 12 | 0.45 | 3 | no | yes | Broad coverage; nothing to grade against |
+| `related` | 15 | 3 | 0.5 | 1 | no | no | Smart linking, runs while the user reads |
+
+The agent **chooses the profile itself** via the tool's `mode` argument. The model knows whether it is asking for a fact or a survey far better than a heuristic on the query string can.
+
+---
+
+## 7. Model tiering
+
+Running every turn on the strongest model with reasoning on is the easy way to good answers and the fastest way to a slow, expensive assistant.
+
+| Tier | Model | Thinking | For |
 |---|---|---|---|
-| Chunk size / overlap | `chunker.ts` | 1000 / 200 | larger for prose, smaller for dense/technical text |
-| Embedding dim | `voyage.ts` `EMBED_DIM` | 1024 | must match the Pinecone index |
-| Wide-net size | `retrieval.ts` `CANDIDATES` | 20 | more recall, more rerank cost |
-| Kept after rerank | `retrieval.ts` `KEEP` | 4 | more context, bigger prompt |
-| Retry ceiling | `retrieval.ts` `MAX_ATTEMPTS` | 2 | more chances on hard queries, more latency |
-| Generation model | `CLAUDE_MODEL` env | `claude-haiku-4-5` | higher answer quality at higher cost |
-| Output cap | `agent.ts` `MAX_ANSWER_TOKENS` | 1024 | longer answers / bigger batches per turn |
-| Tool rounds | `agent.ts` `MAX_TOOL_ROUNDS` | 6 | more multi-step headroom |
+| `fast` | Haiku 4.5 | none | Lookups, single tool calls, confirmations |
+| `reasoned` | Haiku 4.5 | explicit budget | Multi-step work, several tools, order matters |
+| `deep` | Sonnet 5.5 | adaptive + effort | Planning, comparison, judgement |
+
+The classifier is a **heuristic, not a model call**. A model call to decide how much model to use costs the latency it is meant to save and sits on the critical path of every turn. The cost of getting it wrong is small in both directions: an over-promoted lookup wastes a fraction of a cent; an under-promoted plan is slightly flatter.
+
+The two tiers configure thinking differently because the models do: Haiku 4.5 takes an explicit `budget_tokens`; Sonnet 5.5 rejects a budget outright and takes adaptive thinking plus an effort level.
+
+---
+
+## 8. Caching — three kinds
+
+| Cache | Key | TTL | Point |
+|---|---|---|---|
+| **Answer (exact)** | uid + project scope + data version + normalised question | 30 min (2 min if time-sensitive) | A repeat costs no model call at all |
+| **Answer (semantic)** | the same, matched by cosine ≥ 0.965 | as above | Catches a *reworded* repeat |
+| **Query embedding** | model + text | 7 days | Removes a network call; hands the semantic cache its vector free |
+| **Chunk vectors** | vector id | 24 h | MMR's input never changes; this is the slowest step left in retrieval |
+
+Caching an agent is dangerous in a specific way — the risk is not staleness, it is **wrongness**. Four guards:
+
+- **Scope.** The key includes a hash of exactly which projects the caller can see, so two users never share an entry.
+- **Versioning.** Every write bumps a per-user data version that is part of the key, so creating a task invalidates that user's cached answers immediately.
+- **Intent.** A reply produced by a tool that *wrote* something is never cached, and questions about *now* get a short TTL.
+- **Similarity.** The semantic threshold is deliberately high. "What is due today" and "what *was* due today" sit around 0.94 apart and mean different things, so a near miss must be a miss.
+
+**Storage.** In-process LRU first (free, no serialisation), then a durable shared tier. Preference order: Upstash REST → Firestore → local-only. Upstash is the right shape for serverless (one HTTPS call, no connection to keep alive); Firestore is the fallback because it is already provisioned and already authenticated, and entries carry their own expiry so a stale read is impossible rather than merely unlikely. `GET /api/ready` reports which tier is actually live — a deploy that silently fell back to local-only looks identical to a healthy one otherwise.
+
+---
+
+## 9. Conversation memory
+
+The old agent sent the last five turns and dropped everything before. A long conversation loses its own beginning and the model starts contradicting decisions it already made.
+
+- **Recent** — the last three (question, answer) pairs, verbatim. Anaphora lives here: *"make that one high priority"* only resolves against exact wording.
+- **Summary** — everything older, compressed into a running brief: what the conversation is about, what was decided, what was created, any standing preference. Regenerated only when turns fall out of the window, and cached.
+
+The summary is built **after** the reply is sent, never before it, so maintaining memory never delays an answer.
+
+---
+
+## 10. Streaming
+
+`POST /api/chat/stream` delivers the same turn as SSE. Nothing is faster — the same tools run in the same order — what changes is when the user sees the first word.
+
+Frames: `meta` → `step` → `thinking` → `token` → `reset` → `card` → `replace` → `done` (or `error`).
+
+The subtle one is `reset`. A turn that calls a tool produces more than one assistant message: the model often narrates before it acts, and that preamble is a different message from the answer that follows the tool result. Accumulating every delta glues them together — *"...across all your workspaces.One task is overdue"*. So a tool round emits `reset`, and the client shows the narration while it is useful while the stored answer is the final message alone.
+
+---
+
+## 11. What runs where
+
+```
+src/lib/ai/
+  config.ts        every tunable, read once from env
+  documents.ts     the DocElement / ParsedDocument IR
+  parse.ts         format routing
+  parsers/         pdf · office (docx/xlsx/pptx) · markdown · code
+  vision.ts        Claude OCR + captioning (ingest only)
+  chunker.ts       structure-aware chunking
+  contextualize.ts per-chunk context sentences, prompt-cached
+  ingest.ts        parse → chunk → contextualise → embed → upsert
+  voyage.ts        dense embeddings + rerank (cached, retried)
+  sparse.ts        learned lexical embeddings
+  pinecone.ts      hybrid store, parallel fan-out, prefix + tail deletion
+  fusion.ts        RRF · MMR · per-document cap
+  profiles.ts      lookup · explore · summarize · related
+  retrieval.ts     the agentic loop + confidence gate
+  router.ts        fast / reasoned / deep tiering
+  anthropic.ts     client, cached system prompt, plan → request params
+  persona.ts       system prompt, split at the cache breakpoint
+  memory.ts        recent window + rolling summary
+  tools.ts         the tool set and its executors
+  agent.ts         the tool loop
+  streaming.ts     the same loop, as SSE
+  turn.ts          shared setup + cache + post-turn bookkeeping
+  proposals.ts     the approval gate for large writes
+  audit.ts         the write log
+src/lib/cache/     store (3-tier) · semantic (answers) · vectors
+src/lib/security/  guardrails (injection, redaction) · limits (rate)
+src/app/api/       chat · chat/stream · ingest · related · proposals/[id] · ready
+scripts/rag-check/ offline · parsers · live · shrink
+```
+
+---
+
+## 12. Verifying it
+
+```bash
+npx tsx scripts/rag-check/offline.ts   # parsers, chunker, fusion, router, guardrails — no keys
+npx tsx scripts/rag-check/parsers.ts   # xlsx/pptx + chunker edge cases — no keys
+npx tsx --env-file=.env.local scripts/rag-check/live.ts     # real ingest + retrieval, self-cleaning
+npx tsx --env-file=.env.local scripts/rag-check/shrink.ts   # re-upload idempotency
+```
+
+The two live scripts write to a throwaway Pinecone namespace and delete it afterwards. They pace themselves for Voyage's free-tier limit of 3 requests per minute, so they take a few minutes to run.

@@ -51,7 +51,7 @@ export function TimeTracker({ task, actions }: { task: Task; actions: TaskAction
         <button
           onClick={() => (running ? actions.stopTimer(task.id) : actions.startTimer(task.id))}
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
             running ? "bg-danger/15 text-danger hover:bg-danger/25" : "bg-accent/15 text-accent hover:bg-accent/25"
           )}
         >
@@ -59,7 +59,7 @@ export function TimeTracker({ task, actions }: { task: Task; actions: TaskAction
           {running ? "Stop" : "Start"}
         </button>
         {running && (
-          <span className="mono text-[13px] tabular-nums text-text">
+          <span className="mono text-sm tabular-nums text-text">
             {clock(Math.max(0, Math.round((now - running.start) / 1000)))}
           </span>
         )}
@@ -76,9 +76,9 @@ export function TimeTracker({ task, actions }: { task: Task; actions: TaskAction
             onChange={(e) => setMins(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addManual()}
             placeholder="minutes"
-            className="w-24 rounded-md border border-border bg-surface-2 px-2 py-1 text-[13px] text-text outline-none focus:border-accent/60"
+            className="w-24 rounded-md border border-hairline/[0.08] bg-surface-2 px-2 py-1 text-sm text-text outline-none focus:border-accent/60"
           />
-          <button onClick={addManual} className="text-[13px] text-accent hover:underline">
+          <button onClick={addManual} className="text-sm text-accent hover:underline">
             Add
           </button>
         </div>
@@ -91,7 +91,7 @@ export function TimeTracker({ task, actions }: { task: Task; actions: TaskAction
             .slice()
             .reverse()
             .map((e) => (
-              <div key={e.id} className="group flex items-center gap-2 rounded px-1 py-0.5 text-2xs hover:bg-surface-2">
+              <div key={e.id} className="group flex items-center gap-2 rounded px-1 py-0.5 text-2xs hover:bg-hairline/[0.06]">
                 <span className="mono text-text-muted">{formatDuration(e.seconds)}</span>
                 {e.note && <span className="truncate text-text-faint">{e.note}</span>}
                 <span className="ml-auto text-text-faint">

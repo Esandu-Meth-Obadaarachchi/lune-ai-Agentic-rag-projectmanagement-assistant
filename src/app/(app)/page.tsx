@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { useWorkspace } from "@/lib/data/WorkspaceContext";
-import { EMPTY_FILTER, applyFilter, type TaskFilter } from "@/lib/data/filter";
+import { applyFilter } from "@/lib/data/filter";
+import { usePersistedFilter } from "@/lib/data/usePersistedFilter";
 import type { Task } from "@/lib/types";
 import { ProjectHeader, type ViewTab } from "@/components/project/ProjectHeader";
 import { TreeView } from "@/components/views/TreeView";
@@ -28,7 +29,8 @@ export default function ProjectViewPage() {
   const router = useRouter();
   const [tab, setTab] = useState<ViewTab>("tree");
   const [selected, setSelected] = useState<Task | null>(null);
-  const [filter, setFilter] = useState<TaskFilter>(EMPTY_FILTER);
+  // Remembered across refreshes and project switches; see usePersistedFilter.
+  const [filter, setFilter] = usePersistedFilter(currentProject?.id);
 
   // Filtering keeps ancestors of a match so the tree still resolves. Views that
   // render their own data model (Docs, Team, Draw) are unaffected.

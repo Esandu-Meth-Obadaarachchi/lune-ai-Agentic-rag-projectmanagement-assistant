@@ -70,11 +70,13 @@ export function TeamView({ project }: { project: Project }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-text-muted" />
           <h2 className="text-sm font-semibold text-text">Team</h2>
-          <span className="text-2xs text-text-faint">· {members.length} on this project</span>
+          <span className="whitespace-nowrap text-2xs text-text-faint">
+            · {members.length} on this project
+          </span>
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
@@ -90,7 +92,7 @@ export function TeamView({ project }: { project: Project }) {
       </div>
 
       {members.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-[13px] text-text-muted">
+        <div className="rounded-xl border border-dashed border-hairline/[0.08] px-6 py-10 text-center text-sm text-text-muted">
           No members on this project yet. Share the project from Overview to add teammates.
         </div>
       ) : (
@@ -99,14 +101,14 @@ export function TeamView({ project }: { project: Project }) {
             const p = profiles[m.uid];
             const roleIsPreset = !p?.role || PROJECT_ROLES.includes(p.role);
             return (
-              <div key={m.uid} className="rounded-lg border border-border bg-surface px-3.5 py-3">
+              <div key={m.uid} className="rounded-lg border border-hairline/[0.08] bg-surface px-3.5 py-3">
                 <div className="flex items-center gap-2.5">
                   <Avatar name={m.name} src={m.photoURL} size={26} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-medium text-text">{m.name}</div>
+                    <div className="truncate text-sm font-medium text-text">{m.name}</div>
                     <div className="truncate text-2xs text-text-faint">{m.email}</div>
                   </div>
-                  <span className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs capitalize text-text-muted">
+                  <span className="rounded border border-hairline/[0.08] bg-surface-2 px-1.5 py-0.5 text-2xs capitalize text-text-muted">
                     {m.role}
                   </span>
                 </div>
@@ -119,7 +121,7 @@ export function TeamView({ project }: { project: Project }) {
                         onChange={(e) =>
                           patch(m.uid, { role: e.target.value === "__custom" ? " " : e.target.value })
                         }
-                        className={cn(inputClass, "py-1.5 text-[13px]")}
+                        className={cn(inputClass, "py-1.5 text-sm")}
                       >
                         <option value="">Role…</option>
                         {PROJECT_ROLES.map((r) => (
@@ -131,7 +133,7 @@ export function TeamView({ project }: { project: Project }) {
                       </select>
                       {!roleIsPreset && (
                         <input
-                          className={cn(inputClass, "mt-1.5 py-1.5 text-[13px]")}
+                          className={cn(inputClass, "mt-1.5 py-1.5 text-sm")}
                           placeholder="Custom role"
                           value={p?.role?.trim() ?? ""}
                           onChange={(e) => patch(m.uid, { role: e.target.value })}
@@ -140,7 +142,7 @@ export function TeamView({ project }: { project: Project }) {
                     </div>
                     <div className="space-y-1.5">
                       <input
-                        className={cn(inputClass, "py-1.5 text-[13px]")}
+                        className={cn(inputClass, "py-1.5 text-sm")}
                         placeholder="Skills / tech stack, comma separated (e.g. Node, PostgreSQL, Docker)"
                         defaultValue={(p?.skills ?? []).join(", ")}
                         onBlur={(e) =>
@@ -153,7 +155,7 @@ export function TeamView({ project }: { project: Project }) {
                         }
                       />
                       <input
-                        className={cn(inputClass, "py-1.5 text-[13px]")}
+                        className={cn(inputClass, "py-1.5 text-sm")}
                         placeholder="Notes (availability, focus…)"
                         defaultValue={p?.notes ?? ""}
                         onBlur={(e) => patch(m.uid, { notes: e.target.value.trim() })}
@@ -267,14 +269,14 @@ function AssignModal({
     <Modal open onClose={onClose} title="Assign work with AI" width={620}>
       {!proposals ? (
         <div>
-          <p className="mb-3 text-[13px] text-text-muted">
+          <p className="mb-3 text-sm text-text-muted">
             Upload a brief or paste a feature list. The AI splits it into tasks and assigns each to
             the best-fit member, balancing current workload. Nothing is created until you approve it.
           </p>
 
           <div
             onClick={() => fileRef.current?.click()}
-            className="grid cursor-pointer place-items-center rounded-xl border border-dashed border-border px-6 py-6 text-center transition-colors hover:border-border-strong hover:bg-surface-2"
+            className="grid cursor-pointer place-items-center rounded-xl border border-dashed border-hairline/[0.08] px-6 py-6 text-center transition-colors hover:border-hairline/20 hover:bg-hairline/[0.06]"
           >
             <input
               ref={fileRef}
@@ -286,7 +288,7 @@ function AssignModal({
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-surface-2 text-accent">
               <Upload className="h-5 w-5" />
             </div>
-            <div className="mt-2 text-[13px] font-medium text-text">
+            <div className="mt-2 text-sm font-medium text-text">
               {file ? file.name : "Drop a brief or click to upload"}
             </div>
             <div className="mt-0.5 text-2xs text-text-muted">PDF, DOCX, Markdown, text</div>
@@ -321,23 +323,23 @@ function AssignModal({
         </div>
       ) : (
         <div>
-          <p className="mb-3 text-[13px] text-text-muted">
+          <p className="mb-3 text-sm text-text-muted">
             {proposals.length} proposed task{proposals.length === 1 ? "" : "s"}. Adjust the assignee or
             priority, remove any you do not want, then create them.
           </p>
 
           <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
             {proposals.map((t, i) => (
-              <div key={i} className="rounded-lg border border-border bg-surface px-3 py-2.5">
+              <div key={i} className="rounded-lg border border-hairline/[0.08] bg-surface px-3 py-2.5">
                 <div className="flex items-start gap-2">
                   <input
-                    className="min-w-0 flex-1 bg-transparent text-[13.5px] font-medium text-text outline-none"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-medium text-text outline-none"
                     value={t.title}
                     onChange={(e) => setRow(i, { title: e.target.value })}
                   />
                   <button
                     onClick={() => removeRow(i)}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-danger"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint hover:bg-hairline/[0.06] hover:text-danger"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

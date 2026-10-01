@@ -22,8 +22,8 @@ export function Avatar({
         width={size}
         height={size}
         className={cn(
-          "shrink-0 rounded-full object-cover",
-          ring && "ring-2 ring-bg",
+          "shrink-0 rounded-full object-cover ring-1 ring-inset ring-hairline/10",
+          ring && "!ring-2 ring-bg",
           className
         )}
         style={{ width: size, height: size }}
@@ -42,7 +42,9 @@ export function Avatar({
         width: size,
         height: size,
         fontSize: size * 0.42,
-        background: `linear-gradient(135deg, hsl(${hue} 62% 42%), hsl(${(hue + 40) % 360} 60% 32%))`,
+        // Low chroma on purpose: a row of fully saturated avatars fights the
+        // single gold accent for attention. Identity survives at 34%.
+        background: `linear-gradient(148deg, hsl(${hue} 34% 46%), hsl(${(hue + 34) % 360} 30% 30%))`,
       }}
       title={name ?? undefined}
     >
@@ -55,7 +57,7 @@ export function Avatar({
 export function AvatarEmpty({ size = 22 }: { size?: number }) {
   return (
     <div
-      className="grid shrink-0 place-items-center rounded-full border border-dashed border-border-strong text-text-faint"
+      className="grid shrink-0 place-items-center rounded-full border border-dashed border-hairline/20 text-text-faint transition-colors hover:border-accent/40 hover:text-text-muted"
       style={{ width: size, height: size, fontSize: size * 0.5 }}
       title="Unassigned"
     >

@@ -42,6 +42,14 @@ import { InviteMailbox } from "./InviteMailbox";
 import { NotificationBell } from "./NotificationBell";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
+/* One row shape for every navigation target, so the active/hover language never
+   drifts between sections. Active rows carry the gold rail — the light catching
+   the row you are on. */
+const rowBase =
+  "group/row relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-left text-sm transition-[color,background-color] duration-200 ease-smooth";
+const rowIdle = "text-text-muted hover:bg-hairline/[0.045] hover:text-text";
+const rowActive = "rail bg-hairline/[0.07] text-text font-medium";
+
 export function Sidebar({
   navOpen = false,
   onNavClose,
@@ -135,16 +143,19 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex w-[248px] shrink-0 flex-col border-r border-border bg-surface/40",
-        // Mobile: fixed slide-in drawer with an opaque background.
-        "fixed inset-y-0 left-0 z-50 h-[100dvh] -translate-x-full transition-transform duration-300 ease-out max-lg:bg-bg",
-        // Desktop: static column, always visible unless collapsed.
-        "lg:static lg:z-auto lg:h-full lg:translate-x-0 lg:transition-none",
-        navOpen && "translate-x-0 shadow-2xl",
+        // The floating glass slab. It hovers on the moonlit ground rather than
+        // sitting in a bordered column.
+        "glass-panel relative z-50 flex w-[254px] shrink-0 flex-col overflow-hidden rounded-2xl",
+        // Mobile: a fixed drawer inset from the edges, sliding in from the left.
+        "fixed inset-y-2.5 left-2.5 h-auto -translate-x-[110%] transition-transform duration-[380ms] ease-smooth",
+        // Desktop: floats ABOVE the content slab, inset from it, so the page
+        // scrolls beneath the glass and the blur has something to refract.
+        "lg:absolute lg:inset-y-6 lg:left-6 lg:z-30 lg:h-auto lg:translate-x-0 lg:transition-none",
+        navOpen && "translate-x-0",
         collapsed && "lg:hidden"
       )}
     >
-      <div className="flex items-center gap-1 p-3">
+      <div className="flex shrink-0 items-center gap-1 p-2.5">
         <div className="min-w-0 flex-1">
           <WorkspaceSwitcher />
         </div>
@@ -155,117 +166,83 @@ export function Sidebar({
             onClick={onToggleCollapse}
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
-            className="hidden h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-surface-2 hover:text-text lg:grid"
+            className="press hidden h-7 w-7 shrink-0 place-items-center rounded-md text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text lg:grid"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <div className="space-y-1 px-3">
-        <Link
-          href="/today"
-          className={cn(
-            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
-            pathname === "/today"
-              ? "bg-surface-2 text-text"
-              : "text-text-muted hover:bg-surface-2 hover:text-text"
-          )}
-        >
-          <CalendarCheck2 className="h-4 w-4" />
+      {/* Primary navigation */}
+      <div className="shrink-0 space-y-px px-2.5">
+        <NavRow href="/today" active={pathname === "/today"} icon={<CalendarCheck2 className="h-4 w-4" />}>
           Today
-        </Link>
-        <Link
-          href="/overview"
-          className={cn(
-            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
-            pathname === "/overview"
-              ? "bg-surface-2 text-text"
-              : "text-text-muted hover:bg-surface-2 hover:text-text"
-          )}
-        >
-          <LayoutGrid className="h-4 w-4" />
+        </NavRow>
+        <NavRow href="/overview" active={pathname === "/overview"} icon={<LayoutGrid className="h-4 w-4" />}>
           Overview
-        </Link>
-        <Link
-          href="/workspaces"
-          className={cn(
-            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
-            pathname === "/workspaces"
-              ? "bg-surface-2 text-text"
-              : "text-text-muted hover:bg-surface-2 hover:text-text"
-          )}
-        >
-          <Boxes className="h-4 w-4" />
+        </NavRow>
+        <NavRow href="/workspaces" active={pathname === "/workspaces"} icon={<Boxes className="h-4 w-4" />}>
           All workspaces
-        </Link>
-        <Link
-          href="/my-tasks"
-          className={cn(
-            "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
-            pathname === "/my-tasks"
-              ? "bg-surface-2 text-text"
-              : "text-text-muted hover:bg-surface-2 hover:text-text"
-          )}
-        >
-          <ListChecks className="h-4 w-4" />
+        </NavRow>
+        <NavRow href="/my-tasks" active={pathname === "/my-tasks"} icon={<ListChecks className="h-4 w-4" />}>
           All my tasks
-        </Link>
-        <Link
-          href="/agent"
-          className={cn(
-            "flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-[13px] font-medium transition-all",
-            pathname === "/agent"
-              ? "border-accent/40 bg-accent/10 text-accent shadow-glow"
-              : "border-border bg-surface-2 text-text hover:border-accent/30 hover:text-accent"
-          )}
-        >
-          <Sparkles className="h-4 w-4" />
-          Ask the brain
-        </Link>
+        </NavRow>
 
-        {/* Opens the command palette. The ⌘K cap used to sit on "Ask the
-            brain" and was bound to nothing at all. */}
         <button
           onClick={openCommandPalette}
-          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+          className={cn(rowBase, rowIdle, "press")}
         >
           <Search className="h-4 w-4" />
           Search
-          <kbd className="mono ml-auto rounded border border-border bg-surface px-1.5 py-0.5 text-2xs text-text-faint">
+          <kbd className="mono ml-auto rounded border border-hairline/[0.08] bg-hairline/[0.04] px-1.5 py-0.5 text-2xs text-text-faint">
             ⌘K
           </kbd>
         </button>
       </div>
 
+      {/* The agent. The one place gold is used as a surface rather than a rail,
+          because it is the one thing here that is not navigation. */}
+      <div className="mt-2 shrink-0 px-2.5">
+        <Link
+          href="/agent"
+          className={cn(
+            "press group relative flex items-center gap-2.5 overflow-hidden rounded-md px-2.5 py-2 text-sm font-medium transition-all duration-200 ease-smooth",
+            pathname === "/agent"
+              ? "bg-accent text-accent-fg shadow-glow"
+              : "border border-accent/25 bg-accent/[0.07] text-accent hover:border-accent/40 hover:bg-accent/[0.12]"
+          )}
+        >
+          <Sparkles className="h-4 w-4" />
+          Ask the brain
+        </Link>
+      </div>
+
       {/* Quick capture -> workspace Inbox (add a task without picking a project) */}
-      <div className="mt-2 px-3">
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 transition-colors focus-within:border-accent/40">
+      <div className="mt-2.5 shrink-0 px-2.5">
+        <div className="flex items-center gap-2 rounded-md border border-hairline/[0.07] bg-hairline/[0.03] px-2.5 py-[7px] transition-colors focus-within:border-accent/45 focus-within:bg-hairline/[0.05]">
           <Inbox className="h-3.5 w-3.5 shrink-0 text-text-faint" />
           <input
             value={capture}
             onChange={(e) => setCapture(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && quickCapture()}
             placeholder="Capture a task…"
-            className="min-w-0 flex-1 bg-transparent text-[13px] text-text outline-none placeholder:text-text-faint"
+            className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-text-faint"
           />
         </div>
       </div>
 
       {/* Inbox (pinned) */}
       {inboxProject && (
-        <div className="mt-3 px-3">
+        <div className="mt-2.5 shrink-0 px-2.5">
           <button
             onClick={() => openProject(inboxProject.id)}
             className={cn(
-              "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
-              inboxProject.id === currentProject?.id && pathname === "/"
-                ? "bg-surface-2 text-text"
-                : "text-text-muted hover:bg-surface-2 hover:text-text"
+              rowBase,
+              inboxProject.id === currentProject?.id && pathname === "/" ? rowActive : rowIdle
             )}
           >
             <Inbox className="h-4 w-4 shrink-0" />
-            <span className="flex-1 truncate">Inbox</span>
+            <span className="min-w-0 flex-1 truncate">Inbox</span>
             {inboxOpenCount > 0 && (
               <span className="mono text-2xs text-text-faint">{inboxOpenCount}</span>
             )}
@@ -274,42 +251,41 @@ export function Sidebar({
       )}
 
       {/* Projects */}
-      <div className="mt-3 flex min-h-0 flex-1 flex-col px-3">
-        <div className="mb-1.5 flex items-center justify-between px-1">
-          <span className="text-2xs font-semibold uppercase tracking-wider text-text-faint">
-            Projects
-          </span>
-          <button
-            onClick={() => setNewProj(true)}
-            className="grid h-5 w-5 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
-            title="New project"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col px-2.5">
+        <SectionLabel
+          label="Projects"
+          onAdd={() => setNewProj(true)}
+          addTitle="New project"
+        />
+        <nav className="min-h-0 flex-1 space-y-px overflow-y-auto pb-2">
           {realProjects.map((p) => {
             const active = p.id === currentProject?.id && pathname === "/";
             return (
               <div
                 key={p.id}
                 className={cn(
-                  "group flex items-center rounded-md pr-1 transition-colors",
-                  active ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2 hover:text-text"
+                  "group flex items-center rounded-md pr-1 transition-colors duration-200",
+                  active ? "rail bg-hairline/[0.07] text-text" : "text-text-muted hover:bg-hairline/[0.045] hover:text-text"
                 )}
               >
                 <button
                   onClick={() => openProject(p.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left text-[13px]"
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-[7px] text-left text-sm",
+                    active && "font-medium"
+                  )}
                 >
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: p.color }} />
-                  <span className="flex-1 truncate">{p.name}</span>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full ring-1 ring-inset ring-hairline/20"
+                    style={{ background: p.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
                 </button>
                 <Dropdown
                   align="right"
                   width={176}
                   trigger={() => (
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint opacity-100 transition-opacity hover:bg-surface-3 hover:text-text lg:opacity-0 lg:group-hover:opacity-100">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint opacity-100 transition-opacity hover:bg-hairline/[0.08] hover:text-text lg:opacity-0 lg:group-hover:opacity-100">
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </span>
                   )}
@@ -335,7 +311,7 @@ export function Sidebar({
                       >
                         Archive
                       </MenuItem>
-                      <div className="my-1 h-px bg-border" />
+                      <div className="my-1 h-px bg-hairline/[0.08]" />
                       <MenuItem
                         danger
                         icon={<Trash2 className="h-4 w-4" />}
@@ -355,7 +331,7 @@ export function Sidebar({
           {realProjects.length === 0 && archivedProjects.length === 0 && (
             <button
               onClick={() => setNewProj(true)}
-              className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-2 py-2 text-[13px] text-text-faint hover:border-border-strong hover:text-text-muted"
+              className="flex w-full items-center gap-2 rounded-md border border-dashed border-hairline/[0.12] px-2.5 py-2 text-sm text-text-faint transition-colors hover:border-accent/35 hover:text-text-muted"
             >
               <Plus className="h-3.5 w-3.5" /> Create your first project
             </button>
@@ -365,7 +341,7 @@ export function Sidebar({
             <div className="pt-1">
               <button
                 onClick={() => setShowArchived((v) => !v)}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-2xs text-text-faint transition-colors hover:text-text-muted"
+                className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1 text-2xs text-text-faint transition-colors hover:text-text-muted"
               >
                 <Archive className="h-3 w-3" />
                 Archived
@@ -376,18 +352,18 @@ export function Sidebar({
                   <div key={p.id} className="group flex items-center rounded-md pr-1 text-text-faint">
                     <button
                       onClick={() => openProject(p.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-left text-[13px]"
+                      className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-[7px] text-left text-sm"
                     >
                       <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-[3px] opacity-50"
+                        className="h-2 w-2 shrink-0 rounded-full opacity-50"
                         style={{ background: p.color }}
                       />
-                      <span className="flex-1 truncate">{p.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{p.name}</span>
                     </button>
                     <button
                       onClick={() => void updateProject(p.id, { archived: false })}
                       title="Restore project"
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint hover:bg-surface-3 hover:text-text"
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint hover:bg-hairline/[0.08] hover:text-text"
                     >
                       <ArchiveRestore className="h-3.5 w-3.5" />
                     </button>
@@ -399,26 +375,15 @@ export function Sidebar({
       </div>
 
       {/* Pages (workspace-level docs) */}
-      <div className="px-3 pb-1">
-        <div className="mb-1.5 flex items-center justify-between px-1">
-          <Link
-            href="/pages"
-            className={cn(
-              "text-2xs font-semibold uppercase tracking-wider transition-colors",
-              pathname.startsWith("/pages") ? "text-text" : "text-text-faint hover:text-text-muted"
-            )}
-          >
-            Pages
-          </Link>
-          <button
-            onClick={newWorkspacePage}
-            className="grid h-5 w-5 place-items-center rounded text-text-faint hover:bg-surface-2 hover:text-text"
-            title="New page"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="max-h-[22vh] space-y-0.5 overflow-y-auto">
+      <div className="shrink-0 px-2.5 pb-1">
+        <SectionLabel
+          label="Pages"
+          href="/pages"
+          active={pathname.startsWith("/pages")}
+          onAdd={newWorkspacePage}
+          addTitle="New page"
+        />
+        <div className="max-h-[20vh] space-y-px overflow-y-auto">
           {wsPages.map((p) => (
             <button
               key={p.id}
@@ -426,17 +391,14 @@ export function Sidebar({
                 router.push(`/pages/${p.id}`);
                 onNavClose?.();
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+              className={cn(rowBase, rowIdle)}
             >
               <span className="shrink-0 text-sm leading-none">{p.icon || "📄"}</span>
-              <span className="flex-1 truncate">{p.title || "Untitled"}</span>
+              <span className="min-w-0 flex-1 truncate">{p.title || "Untitled"}</span>
             </button>
           ))}
           {wsPages.length === 0 && (
-            <button
-              onClick={newWorkspacePage}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-text-faint hover:text-text-muted"
-            >
+            <button onClick={newWorkspacePage} className={cn(rowBase, "text-text-faint hover:text-text-muted")}>
               <FileText className="h-3.5 w-3.5" /> New page
             </button>
           )}
@@ -444,22 +406,22 @@ export function Sidebar({
       </div>
 
       {/* Secondary nav */}
-      <div className="space-y-0.5 px-3 pb-2">
-        <NavLink href="/knowledge" active={pathname === "/knowledge"} icon={<BookOpen className="h-4 w-4" />}>
+      <div className="shrink-0 space-y-px px-2.5 pb-2">
+        <NavRow href="/knowledge" active={pathname === "/knowledge"} icon={<BookOpen className="h-4 w-4" />}>
           Knowledge base
-        </NavLink>
+        </NavRow>
       </div>
 
       {/* User footer */}
-      <div className="border-t border-border p-2">
+      <div className="shrink-0 border-t border-hairline/[0.07] p-2">
         <Dropdown
           width={216}
           align="left"
           trigger={() => (
-            <div className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-2">
+            <div className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-hairline/[0.05]">
               <Avatar name={user?.displayName} src={user?.photoURL} size={28} />
               <div className="min-w-0 flex-1 text-left">
-                <div className="truncate text-[13px] font-medium text-text">
+                <div className="truncate text-sm font-medium text-text">
                   {user?.displayName ?? "You"}
                 </div>
                 <div className="truncate text-2xs text-text-faint">{user?.email}</div>
@@ -480,7 +442,7 @@ export function Sidebar({
               </MenuItem>
               {isAdminEmail(user?.email) && (
                 <>
-                  <div className="my-1 h-px bg-border" />
+                  <div className="my-1 h-px bg-hairline/[0.08]" />
                   <MenuItem
                     icon={<ShieldAlert className="h-4 w-4" />}
                     onClick={() => {
@@ -492,7 +454,7 @@ export function Sidebar({
                   </MenuItem>
                 </>
               )}
-              <div className="my-1 h-px bg-border" />
+              <div className="my-1 h-px bg-hairline/[0.08]" />
               <MenuItem danger icon={<LogOut className="h-4 w-4" />} onClick={() => signOutUser()}>
                 Sign out
               </MenuItem>
@@ -567,7 +529,7 @@ export function Sidebar({
       </Modal>
 
       <Modal open={!!projToDelete} onClose={() => setProjToDelete(null)} title="Delete project">
-        <p className="text-[13px] leading-relaxed text-text-muted">
+        <p className="text-sm leading-relaxed text-text-muted">
           Delete <span className="font-medium text-text">{projToDelete?.name}</span> and all of its
           tasks? This cannot be undone.
         </p>
@@ -584,7 +546,8 @@ export function Sidebar({
   );
 }
 
-function NavLink({
+/** A primary navigation row. */
+function NavRow({
   href,
   active,
   icon,
@@ -596,15 +559,44 @@ function NavLink({
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-        active ? "bg-surface-2 text-text" : "text-text-muted hover:bg-surface-2 hover:text-text"
-      )}
-    >
+    <Link href={href} className={cn(rowBase, active ? rowActive : rowIdle)}>
       {icon}
       {children}
     </Link>
+  );
+}
+
+/** A section heading with an inline add button. */
+function SectionLabel({
+  label,
+  href,
+  active,
+  onAdd,
+  addTitle,
+}: {
+  label: string;
+  href?: string;
+  active?: boolean;
+  onAdd: () => void;
+  addTitle: string;
+}) {
+  const text = "text-2xs font-semibold uppercase tracking-[0.09em] transition-colors";
+  return (
+    <div className="mb-1 flex items-center justify-between px-2.5">
+      {href ? (
+        <Link href={href} className={cn(text, active ? "text-text" : "text-text-faint hover:text-text-muted")}>
+          {label}
+        </Link>
+      ) : (
+        <span className={cn(text, "text-text-faint")}>{label}</span>
+      )}
+      <button
+        onClick={onAdd}
+        className="press grid h-5 w-5 place-items-center rounded text-text-faint transition-colors hover:bg-hairline/[0.08] hover:text-text"
+        title={addTitle}
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }

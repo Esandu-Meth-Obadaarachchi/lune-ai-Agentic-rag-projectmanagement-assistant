@@ -28,15 +28,15 @@ export function TaskCard({
     <div
       onClick={onOpen}
       className={cn(
-        "card cursor-pointer p-2.5 shadow-card transition-colors hover:border-border-strong",
-        dragging && "rotate-[1.5deg] border-accent/40 shadow-pop"
+        "card card-hover cursor-pointer rounded-md p-2.5 shadow-e1",
+        dragging && "rotate-[1.5deg] border-accent/45 shadow-e3"
       )}
     >
       <div className="flex items-start gap-2">
         <p
           className={cn(
-            "flex-1 text-[13px] leading-snug",
-            task.status === "done" ? "text-text-faint line-through" : "text-text"
+            "flex-1 text-sm leading-snug",
+            task.status === "done" ? "text-text-faint line-through decoration-text-faint/50" : "text-text"
           )}
         >
           {task.title}

@@ -42,16 +42,16 @@ export function FilterBar({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-1.5">
       {/* Text search is always visible — it is the one people reach for most. */}
-      <div className="relative flex min-w-0 flex-1 items-center sm:max-w-[220px] sm:flex-none">
+      <div className="relative hidden min-w-0 flex-1 items-center md:flex md:w-[200px] xl:w-[220px]">
         <Search className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-text-faint" />
         <input
           value={filter.text}
           onChange={(e) => set({ text: e.target.value })}
           placeholder="Filter tasks…"
           aria-label="Filter tasks by title"
-          className="h-7 w-full min-w-0 rounded-md border border-border bg-surface-2 pl-7 pr-6 text-[13px] text-text outline-none transition-colors placeholder:text-text-faint focus:border-accent/40"
+          className="h-8 w-full min-w-0 rounded-md border border-hairline/[0.09] bg-hairline/[0.04] pl-7 pr-6 text-sm text-text outline-none transition-all duration-200 placeholder:text-text-faint focus:border-accent/50 focus:bg-hairline/[0.06] focus:ring-2 focus:ring-accent/15"
         />
         {filter.text && (
           <button
@@ -73,7 +73,7 @@ export function FilterBar({
               "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-2xs font-medium transition-colors",
               count > 0
                 ? "border-accent/30 bg-accent/10 text-accent"
-                : "border-border bg-surface-2 text-text-muted hover:border-border-strong hover:text-text"
+                : "border-hairline/[0.08] bg-surface-2 text-text-muted hover:border-hairline/20 hover:text-text"
             )}
           >
             <Filter className="h-3.5 w-3.5" />
@@ -143,10 +143,10 @@ export function FilterBar({
 
             {count > 0 && (
               <>
-                <div className="my-1 h-px bg-border" />
+                <div className="my-1 h-px bg-hairline/[0.08]" />
                 <button
                   onClick={() => onChange({ ...EMPTY_FILTER })}
-                  className="w-full rounded-md px-2 py-1.5 text-left text-[13px] text-danger transition-colors hover:bg-danger/10"
+                  className="w-full rounded-md px-2 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
                 >
                   Clear all filters
                 </button>
@@ -183,14 +183,14 @@ function Row({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
-        active ? "bg-accent/10 text-accent" : "text-text-muted hover:bg-surface-2 hover:text-text"
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+        active ? "bg-accent/10 text-accent" : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
       )}
     >
       <span
         className={cn(
           "grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] border",
-          active ? "border-accent bg-accent text-accent-fg" : "border-border-strong"
+          active ? "border-accent bg-accent text-accent-fg" : "border-hairline/20"
         )}
       >
         {active && (

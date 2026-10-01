@@ -290,14 +290,14 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-start justify-center p-3 pt-[8vh] sm:pt-[14vh]">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={close} />
+      <div className="fixed inset-0 animate-fade-in bg-bg-deep/65 backdrop-blur-[3px]" onClick={close} />
       <div
-        className="card relative z-10 flex max-h-[70vh] w-full max-w-[560px] flex-col overflow-hidden p-0 shadow-pop animate-scale-in"
+        className="glass-panel relative z-10 flex max-h-[70vh] w-full max-w-[560px] animate-scale-in flex-col overflow-hidden rounded-2xl p-0 [--glass-alpha:0.78]"
         role="dialog"
         aria-modal
         aria-label="Command palette"
       >
-        <div className="flex items-center gap-2.5 border-b border-border px-3.5 py-3">
+        <div className="flex items-center gap-2.5 border-b border-hairline/[0.08] px-3.5 py-3">
           <Search className="h-4 w-4 shrink-0 text-text-faint" />
           <input
             autoFocus
@@ -305,16 +305,16 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Search tasks, projects and pages…"
-            className="min-w-0 flex-1 bg-transparent text-[14px] text-text outline-none placeholder:text-text-faint"
+            className="min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-faint"
           />
-          <kbd className="mono hidden shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-faint sm:block">
+          <kbd className="mono hidden shrink-0 rounded border border-hairline/[0.09] bg-hairline/[0.05] px-1.5 py-0.5 text-2xs text-text-faint sm:block">
             esc
           </kbd>
         </div>
 
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1.5">
           {rows.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[13px] text-text-muted">
+            <div className="px-4 py-8 text-center text-sm text-text-muted">
               Nothing matches “{q}”.
             </div>
           ) : (
@@ -325,7 +325,7 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
               return (
                 <div key={item.id}>
                   {header && (
-                    <div className="px-3.5 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wider text-text-faint">
+                    <div className="px-3.5 pb-1 pt-2 text-2xs font-semibold uppercase tracking-[0.09em] text-text-faint">
                       {header}
                     </div>
                   )}
@@ -335,7 +335,7 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
                     onClick={item.run}
                     className={cn(
                       "flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition-colors",
-                      i === cursor ? "bg-surface-2" : "hover:bg-surface-2/60"
+                      i === cursor ? "bg-surface-2" : "hover:bg-hairline/[0.036]"
                     )}
                   >
                     {item.dot ? (
@@ -346,7 +346,7 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
                     ) : (
                       <Icon className="h-3.5 w-3.5 shrink-0 text-text-faint" />
                     )}
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">
+                    <span className="min-w-0 flex-1 truncate text-sm text-text">
                       {item.label}
                     </span>
                     {item.hint && (
@@ -364,13 +364,13 @@ export function CommandPalette({ onOpenTask }: { onOpenTask?: (t: Task) => void 
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-border px-3.5 py-2 text-2xs text-text-faint">
+        <div className="flex items-center gap-3 border-t border-hairline/[0.08] px-3.5 py-2 text-2xs text-text-faint">
           <span className="flex items-center gap-1">
-            <kbd className="mono rounded border border-border bg-surface-2 px-1 py-0.5">↑↓</kbd>
+            <kbd className="mono rounded border border-hairline/[0.09] bg-hairline/[0.05] px-1 py-0.5">↑↓</kbd>
             move
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="mono rounded border border-border bg-surface-2 px-1 py-0.5">↵</kbd>
+            <kbd className="mono rounded border border-hairline/[0.09] bg-hairline/[0.05] px-1 py-0.5">↵</kbd>
             open
           </span>
           <span className="ml-auto flex items-center gap-1">

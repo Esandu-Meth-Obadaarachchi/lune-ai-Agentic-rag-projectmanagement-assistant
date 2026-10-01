@@ -15,10 +15,10 @@ export function SubtaskProgress({
   const complete = done === total;
   return (
     <span
-      className={cn("inline-flex items-center gap-1.5 text-2xs text-text-muted", className)}
+      className={cn("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-2xs text-text-faint", className)}
       title={`${done} of ${total} subtasks done`}
     >
-      <span className="relative h-1 w-8 overflow-hidden rounded-full bg-surface-3">
+      <span className="relative h-[3px] w-7 shrink-0 overflow-hidden rounded-full bg-hairline/[0.1]">
         <span
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-all",

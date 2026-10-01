@@ -20,14 +20,33 @@ export function Dropdown({
   align = "left",
   width = 200,
   className,
+  onOpenChange,
 }: {
   trigger: (open: boolean) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   width?: number;
   className?: string;
+  /** Fires when the panel opens or closes. Lets a parent that reacts to focus
+   *  leaving it (an input that submits on blur) know the focus went into this
+   *  panel rather than away from the page. */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Latest callback in a ref so the effect below fires on `open` alone and an
+  // inline arrow passed by the parent cannot re-trigger it every render.
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  const mounted = useRef(false);
+  useEffect(() => {
+    // The first run is the initial "closed", which is not a change.
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    openChange.current?.(open);
+  }, [open]);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -98,7 +117,7 @@ export function Dropdown({
           <div
             ref={popRef}
             className={cn(
-              "glass fixed z-[110] origin-top animate-scale-in overflow-hidden rounded-lg p-1 shadow-pop",
+              "glass fixed z-[110] origin-top animate-scale-in overflow-hidden rounded-xl p-1.5 shadow-e3",
               className
             )}
             style={{
@@ -136,14 +155,14 @@ export function MenuItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
-        danger ? "text-danger hover:bg-danger/10" : "text-text hover:bg-surface-2",
-        active && "bg-surface-2"
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-[7px] text-left text-sm transition-colors duration-150",
+        danger ? "text-danger hover:bg-danger/10" : "text-text hover:bg-hairline/[0.07]",
+        active && "bg-hairline/[0.07]"
       )}
     >
       {icon && <span className="grid h-4 w-4 place-items-center text-text-muted">{icon}</span>}
-      <span className="flex-1 truncate">{children}</span>
-      {active && <span className="text-accent">✓</span>}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {active && <span className="text-accent" aria-hidden>✓</span>}
     </button>
   );
 }

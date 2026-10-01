@@ -192,7 +192,7 @@ export function Velocity({ bars, average }: { bars: VelocityBar[]; average: numb
             >
               {/* Committed sits behind as a target, delivered in front. */}
               <div
-                className="absolute bottom-0 w-full rounded-t-[4px] border border-border bg-surface-2"
+                className="absolute bottom-0 w-full rounded-t-[4px] border border-hairline/[0.08] bg-surface-2"
                 style={{ height: `${(b.committed / max) * 100}%` }}
               />
               <div
@@ -209,7 +209,7 @@ export function Velocity({ bars, average }: { bars: VelocityBar[]; average: numb
           <span className="h-2 w-2 rounded-[2px] bg-accent/80" /> Delivered
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-[2px] border border-border bg-surface-2" /> Committed
+          <span className="h-2 w-2 rounded-[2px] border border-hairline/[0.08] bg-surface-2" /> Committed
         </span>
         {average != null && (
           <span className="mono ml-auto text-text">avg {average.toFixed(1)} pts</span>
@@ -223,7 +223,7 @@ function EmptyChart({ height, label }: { height: number; label: string }) {
   return (
     <div
       className={cn(
-        "grid place-items-center rounded-lg border border-dashed border-border/60 px-4 text-center text-2xs text-text-faint"
+        "grid place-items-center rounded-lg border border-dashed border-hairline/[0.048] px-4 text-center text-2xs text-text-faint"
       )}
       style={{ height }}
     >

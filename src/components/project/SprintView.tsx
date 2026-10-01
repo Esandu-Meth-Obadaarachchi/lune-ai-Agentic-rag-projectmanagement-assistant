@@ -118,13 +118,13 @@ export function SprintView({
       {completed.length > 0 && (
         <section className="mt-6">
           <SectionTitle>Closed</SectionTitle>
-          <div className="card divide-y divide-border/60 overflow-hidden">
+          <div className="card divide-y divide-hairline/[0.042] overflow-hidden">
             {completed.map((s) => {
               const st = sprintStats(s, tasks);
               return (
                 <div key={s.id} className="flex items-center gap-3 px-3 py-2.5">
                   <Flag className="h-3.5 w-3.5 shrink-0 text-text-faint" />
-                  <span className="flex-1 truncate text-[13px] text-text">{s.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-text">{s.name}</span>
                   <span className="mono hidden text-2xs text-text-faint sm:inline">
                     {format(new Date(s.startDate), "d MMM")} – {format(new Date(s.endDate), "d MMM")}
                   </span>
@@ -188,7 +188,7 @@ function ActiveSprint({
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-hairline/[0.08] px-4 py-3">
         <span className="grid h-7 w-7 place-items-center rounded-md bg-accent/10 text-accent">
           <Rocket className="h-4 w-4" />
         </span>
@@ -219,7 +219,7 @@ function ActiveSprint({
         <div className="min-w-0">
           <SectionTitle>Committed work</SectionTitle>
           {inSprint.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center text-2xs text-text-faint">
+            <div className="rounded-lg border border-dashed border-hairline/[0.048] px-4 py-8 text-center text-2xs text-text-faint">
               Nothing committed yet. Pull tasks in from the Backlog tab.
             </div>
           ) : (
@@ -264,7 +264,7 @@ function PlannedRow({
     <div className="card flex flex-wrap items-center gap-2.5 px-3 py-2.5">
       <CalendarRange className="h-3.5 w-3.5 shrink-0 text-text-faint" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-text">{sprint.name}</div>
+        <div className="truncate text-sm font-medium text-text">{sprint.name}</div>
         <div className="mono text-2xs text-text-faint">
           {format(new Date(sprint.startDate), "d MMM")} –{" "}
           {format(new Date(sprint.endDate), "d MMM")}
@@ -407,7 +407,7 @@ function CloseSprintModal({
 
   return (
     <Modal open onClose={onClose} title={`Complete ${sprint.name}`} width={420}>
-      <p className="mb-3 text-[13px] leading-relaxed text-text-muted">
+      <p className="mb-3 text-sm leading-relaxed text-text-muted">
         Delivered <span className="mono font-medium text-text">{stats.donePoints}</span> of{" "}
         <span className="mono font-medium text-text">{stats.committed}</span> committed points
         across <span className="mono font-medium text-text">{stats.done}</span> tasks.
@@ -429,7 +429,7 @@ function CloseSprintModal({
           </select>
         </Field>
       ) : (
-        <p className="mb-3 text-[13px] text-text-muted">Everything committed was finished.</p>
+        <p className="mb-3 text-sm text-text-muted">Everything committed was finished.</p>
       )}
 
       <p className="mb-3 text-2xs text-text-faint">
@@ -460,7 +460,7 @@ function Stat({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted",
+        "inline-flex items-center gap-1 rounded-md border border-hairline/[0.08] bg-surface-2 px-1.5 py-0.5 text-2xs text-text-muted",
         tone === "danger" && "border-danger/25 bg-danger/10 text-danger"
       )}
     >

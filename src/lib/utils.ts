@@ -37,3 +37,32 @@ export function shortId(id: string): string {
 export function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+/**
+ * Was this click on something that has its own job?
+ *
+ * A row that opens on click has to leave its own controls alone: the status
+ * dot, the pickers, the caret, the checkbox, the title you can rename. Those
+ * are all buttons or inputs, so asking "is there one of those between the click
+ * and the row" answers it without each row keeping a list of its children.
+ * `data-no-open` is the escape hatch for a control that is not a native one.
+ *
+ * Portalled panels (the date picker, the assignee menu) bubble through the
+ * React tree to the row. They stop propagation themselves, but checking
+ * `role` here as well means a future panel that forgets to is still safe.
+ */
+export function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'button, input, textarea, select, a, label, [role="menu"], [role="menuitem"], [role="dialog"], [data-no-open]'
+    )
+  );
+}
+
+/** True when the user has text highlighted, so a click that ends a drag-select
+ *  is not mistaken for a click meant to open the row. */
+export function hasTextSelection(): boolean {
+  if (typeof window === "undefined") return false;
+  return (window.getSelection()?.toString().length ?? 0) > 0;
+}

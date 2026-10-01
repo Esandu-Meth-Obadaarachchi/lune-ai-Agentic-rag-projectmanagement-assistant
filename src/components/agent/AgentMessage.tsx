@@ -6,14 +6,14 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/lib/types";
 import { Logo } from "@/components/ui/Logo";
-import { AgentCards } from "./cards";
+import { AgentCards, type ReplyFn } from "./cards";
 import { cn } from "@/lib/utils";
 
-export function AgentMessage({ message }: { message: ChatMessage }) {
+export function AgentMessage({ message, onReply }: { message: ChatMessage; onReply?: ReplyFn }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-accent px-3.5 py-2 text-[13.5px] text-accent-fg">
+        <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-accent px-3.5 py-2 text-sm text-accent-fg">
           {message.content}
         </div>
       </div>
@@ -30,13 +30,13 @@ export function AgentMessage({ message }: { message: ChatMessage }) {
         {message.pending ? (
           <Typing />
         ) : (
-          <div className="prose-agent text-[13.5px] leading-relaxed text-text">
+          <div className="prose-agent text-sm leading-relaxed text-text">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
               {message.content}
             </ReactMarkdown>
           </div>
         )}
-        {message.cards && <AgentCards cards={message.cards} />}
+        {message.cards && <AgentCards cards={message.cards} onReply={onReply} />}
       </div>
     </div>
   );
@@ -54,7 +54,7 @@ function Steps({ steps }: { steps: string[] }) {
         <Terminal className="h-3 w-3" /> {steps.length} action{steps.length === 1 ? "" : "s"}
       </button>
       {open && (
-        <div className="mt-1 space-y-0.5 border-l border-border pl-2.5">
+        <div className="mt-1 space-y-0.5 border-l border-hairline/[0.08] pl-2.5">
           {steps.map((s, i) => (
             <div key={i} className="mono text-2xs text-text-muted">
               {s}
@@ -92,5 +92,5 @@ const MD: Components = {
   ),
   h1: ({ node, ...p }) => <h3 className="mb-1.5 mt-2 text-sm font-semibold" {...p} />,
   h2: ({ node, ...p }) => <h3 className="mb-1.5 mt-2 text-sm font-semibold" {...p} />,
-  h3: ({ node, ...p }) => <h3 className="mb-1 mt-2 text-[13.5px] font-semibold" {...p} />,
+  h3: ({ node, ...p }) => <h3 className="mb-1 mt-2 text-sm font-semibold" {...p} />,
 };

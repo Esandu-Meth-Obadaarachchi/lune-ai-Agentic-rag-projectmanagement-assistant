@@ -124,8 +124,8 @@ function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
           <div
             key={t.id}
             className={cn(
-              "pointer-events-auto flex w-full max-w-md items-center gap-2.5 rounded-lg border bg-surface px-3 py-2.5 shadow-pop animate-slide-up sm:w-auto sm:min-w-[280px]",
-              t.tone === "error" ? "border-danger/40" : "border-border"
+              "pointer-events-auto flex w-full max-w-md items-center gap-2.5 rounded-lg border bg-surface px-3 py-2.5 shadow-e3 animate-slide-up sm:w-auto sm:min-w-[280px]",
+              t.tone === "error" ? "border-danger/40" : "border-hairline/[0.08]"
             )}
           >
             <Icon
@@ -134,14 +134,14 @@ function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
                 t.tone === "error" ? "text-danger" : t.tone === "ok" ? "text-done" : "text-accent"
               )}
             />
-            <span className="min-w-0 flex-1 text-[13px] leading-snug text-text">{t.message}</span>
+            <span className="min-w-0 flex-1 text-sm leading-snug text-text">{t.message}</span>
             {t.action && (
               <button
                 onClick={() => {
                   void t.action!.run();
                   onDismiss(t.id);
                 }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-strong px-2 py-1 text-2xs font-medium text-text transition-colors hover:bg-surface-2"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-hairline/20 px-2 py-1 text-2xs font-medium text-text transition-colors hover:bg-hairline/[0.06]"
               >
                 <RotateCcw className="h-3 w-3" />
                 {t.action.label}
@@ -150,7 +150,7 @@ function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id:
             <button
               onClick={() => onDismiss(t.id)}
               aria-label="Dismiss"
-              className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint transition-colors hover:bg-surface-2 hover:text-text"
+              className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint transition-colors hover:bg-hairline/[0.06] hover:text-text"
             >
               <X className="h-3.5 w-3.5" />
             </button>

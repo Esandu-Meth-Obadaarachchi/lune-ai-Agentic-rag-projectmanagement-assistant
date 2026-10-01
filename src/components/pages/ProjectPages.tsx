@@ -64,11 +64,11 @@ export function ProjectPages({ project }: { project: Project }) {
             <button
               key={p.id}
               onClick={() => router.push(`/pages/${p.id}`)}
-              className="card flex items-start gap-2.5 p-3.5 text-left transition-colors hover:border-border-strong"
+              className="card flex items-start gap-2.5 p-3.5 text-left transition-colors hover:border-hairline/20"
             >
               <span className="text-xl leading-none">{p.icon || "📄"}</span>
               <div className="min-w-0">
-                <div className="truncate text-[13.5px] font-medium text-text">{p.title || "Untitled"}</div>
+                <div className="truncate text-sm font-medium text-text">{p.title || "Untitled"}</div>
                 <div className="mt-0.5 text-2xs text-text-faint">edited {relativeTime(p.updatedAt)}</div>
               </div>
             </button>

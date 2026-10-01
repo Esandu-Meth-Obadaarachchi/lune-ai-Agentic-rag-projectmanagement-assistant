@@ -24,13 +24,13 @@ export function StandupCard({
     digest.blocked.length === 0;
 
   return (
-    <div className="card lit overflow-hidden shadow-card">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+    <div className="card lit overflow-hidden shadow-e1">
+      <div className="flex items-center gap-2 border-b border-hairline/[0.08] px-4 py-3">
         <span className="grid h-6 w-6 place-items-center rounded-md bg-accent/15 text-accent">
           <Sparkles className="h-3.5 w-3.5" />
         </span>
         <div>
-          <div className="text-[13px] font-semibold text-text">
+          <div className="text-sm font-semibold text-text">
             {greeting()}, {userName.split(" ")[0]}
           </div>
           <div className="text-2xs text-text-faint">Here&apos;s your standup for today</div>
@@ -45,7 +45,7 @@ export function StandupCard({
           You&apos;re all clear. Nothing overdue, due today or blocked. ✨
         </div>
       ) : (
-        <div className="grid gap-px bg-border sm:grid-cols-2">
+        <div className="grid gap-px bg-hairline/[0.08] sm:grid-cols-2">
           <Section
             title="Overdue"
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
@@ -127,10 +127,10 @@ function Section({
             <button
               key={t.id}
               onClick={() => onOpen(t)}
-              className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-surface-2"
+              className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-hairline/[0.06]"
             >
               <PriorityDot priority={t.priority} />
-              <span className="flex-1 truncate text-[13px] text-text">{t.title}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-text">{t.title}</span>
               <span className="hidden shrink-0 text-2xs text-text-faint sm:inline">
                 {projectName(t.projectId)}
               </span>

@@ -175,7 +175,7 @@ export function CalendarView({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-border pb-1.5">
+      <div className="grid grid-cols-7 border-b border-hairline/[0.08] pb-1.5">
         {WEEKDAYS.map((d) => (
           <div key={d} className="px-2 text-2xs font-medium uppercase tracking-wide text-text-faint">
             {d}
@@ -260,7 +260,7 @@ function DayCell({
       ref={setNodeRef}
       onClick={() => onSelectDay(iso)}
       className={cn(
-        "flex min-h-[92px] cursor-pointer flex-col gap-1 border-b border-r border-border/60 p-1.5 transition-colors hover:bg-surface/50",
+        "flex min-h-[58px] cursor-pointer flex-col gap-1 border-b border-r border-hairline/[0.048] p-1 transition-colors hover:bg-hairline/[0.045] sm:min-h-[92px] sm:p-1.5",
         outside && "bg-surface/30",
         isOver && "bg-accent/[0.06] ring-1 ring-inset ring-accent/30"
       )}
@@ -273,7 +273,30 @@ function DayCell({
       >
         {format(day, "d")}
       </div>
-      <div className="space-y-1 overflow-hidden">
+      {/* A phone month-cell is ~50px wide, where a labelled chip truncates to a
+          single letter and tells you nothing. Below sm the day shows dots
+          instead — how much is on, at a glance — and tapping the day opens the
+          existing day detail with the full list. Labels return from sm up. */}
+      <div className="flex flex-wrap items-center gap-1 px-0.5 sm:hidden">
+        {tasks.slice(0, 4).map((t) => (
+          <span
+            key={t.id}
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ background: projColor.get(t.projectId) ?? "rgb(var(--accent))" }}
+            title={t.title}
+          />
+        ))}
+        {events.slice(0, 2).map((e) => (
+          <span key={e.id} className="h-1.5 w-1.5 rounded-full bg-info" title={e.title} />
+        ))}
+        {tasks.length + events.length > 6 && (
+          <span className="mono text-[9px] leading-none text-text-faint">
+            +{tasks.length + events.length - 6}
+          </span>
+        )}
+      </div>
+
+      <div className="hidden space-y-1 overflow-hidden sm:block">
         {shownTasks.map((t) => (
           <Chip
             key={t.id}
@@ -341,9 +364,9 @@ function Chip({
       className={cn(
         "flex items-center gap-1 rounded border px-1.5 py-0.5 text-2xs",
         readOnly
-          ? "cursor-default border-dashed border-border/70 bg-transparent text-text-faint"
-          : "cursor-pointer border-border bg-surface text-text",
-        overlay ? "shadow-pop" : !readOnly && "hover:border-border-strong",
+          ? "cursor-default border-dashed border-hairline/[0.056] bg-transparent text-text-faint"
+          : "cursor-pointer border-hairline/[0.08] bg-surface text-text",
+        overlay ? "shadow-e3" : !readOnly && "hover:border-hairline/20",
         isDragging && "opacity-40",
         task.status === "done" && "text-text-faint line-through"
       )}

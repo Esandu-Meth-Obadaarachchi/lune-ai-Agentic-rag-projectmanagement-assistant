@@ -63,7 +63,15 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
 
     const add = async (
       title: string,
-      opts: { parentId?: string | null; status?: TaskStatus; priority?: TaskPriority; dueDate?: string | null } = {}
+      opts: {
+        parentId?: string | null;
+        status?: TaskStatus;
+        priority?: TaskPriority;
+        dueDate?: string | null;
+        /** HH:MM, 24h. Only meaningful alongside dueDate. */
+        dueTime?: string | null;
+        dueEndTime?: string | null;
+      } = {}
     ) => {
       if (!ready || !title.trim()) return;
       const id = await createTask({
@@ -76,6 +84,10 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
         status: opts.status,
         priority: opts.priority,
         dueDate: opts.dueDate ?? null,
+        // A time with no date is meaningless, so it is dropped rather than
+        // stored as an orphan the calendar sync would then choke on.
+        dueTime: opts.dueDate ? opts.dueTime ?? null : null,
+        dueEndTime: opts.dueDate && opts.dueTime ? opts.dueEndTime ?? null : null,
         order: nextOrder(opts.parentId ?? null),
         assignee: user ? { id: user.uid, name: user.displayName ?? "You", avatar: user.photoURL } : null,
       });
@@ -135,7 +147,11 @@ export function useTaskActions(opts: { projectId?: string | null } = {}) {
     return {
       ready,
       add,
-      addSubtask: (parentId: string, title: string) => add(title, { parentId }),
+      addSubtask: (
+        parentId: string,
+        title: string,
+        opts: { dueDate?: string | null; dueTime?: string | null; dueEndTime?: string | null } = {}
+      ) => add(title, { parentId, ...opts }),
       rename: async (id: string, title: string) => {
         await updateTask(id, { title });
         syncTaskToCalendar(id);

@@ -3,29 +3,46 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   Design tokens. Dark is the default (this audience lives in dark mode).
-   Light mode is a first-class fallback, toggled by `.light` on <html>.
+   LUNE — design tokens.
+
+   The system has one idea: moonlight. A single fixed light source sits at the
+   top-left of the viewport. Everything else is a slab of frosted glass floating
+   on that lit ground, catching a highlight on its top edge that decays as it
+   falls away. Gold is not a brand colour here, it is the light.
+
+   Dark is the default (this is a night tool). Light mode is a first-class
+   fallback, toggled by `.light` on <html>.
    Every colour is `R G B` (space separated) so Tailwind can apply <alpha-value>.
    ========================================================================== */
 :root,
 .dark {
-  --bg: 7 8 11; /* #07080b — the near-black base from the mock */
-  --surface: 15 17 22;
-  --surface-2: 21 24 31;
-  --surface-3: 28 32 41;
-  --border: 33 38 48;
-  --border-strong: 50 57 71;
+  /* --- ground + slabs ---------------------------------------------------- */
+  --bg: 6 7 10;            /* #06070a — cool near-black, the unlit ground */
+  --bg-deep: 3 4 6;        /* the far edge of the ground, used in washes */
+  --surface: 22 25 33;     /* a slab resting on the ground */
+  --surface-2: 30 34 44;   /* raised inside a slab (inputs, hover) */
+  --surface-3: 39 44 56;   /* raised again (pressed, chips) */
 
-  --text: 231 233 238; /* #e7e9ee */
-  --text-muted: 150 158 173;
-  --text-faint: 99 107 122;
+  /* Solid hairlines for opaque contexts. Glass uses `hairline` (pure light)
+     at low alpha instead, which is what makes a translucent edge read right. */
+  --border: 34 38 48;
+  --border-strong: 54 60 74;
+  --hairline: 255 255 255;
 
-  --accent: 245 197 24; /* #f5c518 — the one confident accent */
-  --accent-hover: 250 212 66;
-  --accent-fg: 12 13 17; /* near-black text sits on the gold */
-  --accent-soft: 245 197 24;
+  /* --- text ------------------------------------------------------------- */
+  --text: 234 236 242;
+  --text-muted: 154 161 176;
+  --text-faint: 104 112 128;
 
-  --todo: 150 158 173;
+  /* --- the light -------------------------------------------------------- */
+  --accent: 245 197 66;        /* #f5c542 — moonlit gold, the light itself */
+  --accent-hover: 250 213 108;
+  --accent-fg: 10 11 14;       /* near-black sits on the gold */
+  --accent-soft: 245 197 66;
+  --lumen: 255 226 160;        /* the highlight end of the light */
+
+  /* --- status ----------------------------------------------------------- */
+  --todo: 154 161 176;
   --progress: 96 165 250;
   --blocked: 248 113 113;
   --done: 74 222 128;
@@ -35,28 +52,48 @@
   --ok: 74 222 128;
   --info: 96 165 250;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+  /* --- glass ------------------------------------------------------------ */
+  /* Tuned once here so every floating layer shares one material. */
+  --glass-tint: 38 43 55;  /* lighter than the working slab: glass sits nearer */
+  --glass-alpha: 0.5;
+  --glass-blur: 30px;
+  --glass-edge: 0.12;      /* outer hairline */
+  --glass-sheen: 0.14;     /* inset top highlight */
+
+  /* Tree nesting step. Tightened on phones, where each level of indent is
+     width taken straight out of the task title. */
+  --tree-indent: 14px;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: dark;
 }
 
 .light {
-  --bg: 249 249 247;
+  /* The ground has to be clearly darker than the slabs, or white cards on a
+     near-white page read as one flat sheet. */
+  --bg: 232 233 238;
+  --bg-deep: 216 218 225;
   --surface: 255 255 255;
-  --surface-2: 245 245 243;
-  --surface-3: 238 238 235;
-  --border: 228 228 224;
-  --border-strong: 208 208 202;
+  --surface-2: 244 245 248;
+  --surface-3: 235 236 241;
 
-  --text: 23 25 31;
+  --border: 219 221 228;
+  --border-strong: 190 193 203;
+  /* Darker than the text-adjacent greys so the same low alphas the dark theme
+     uses still resolve to a visible hairline here. */
+  --hairline: 8 12 22;
+
+  --text: 22 24 30;
   --text-muted: 88 94 106;
-  --text-faint: 140 146 158;
+  --text-faint: 136 142 154;
 
-  --accent: 181 132 8; /* darkened gold keeps AA contrast on light surfaces */
-  --accent-hover: 156 113 6;
+  --accent: 168 120 4;       /* darkened gold keeps AA contrast on light slabs */
+  --accent-hover: 143 101 3;
   --accent-fg: 255 255 255;
-  --accent-soft: 245 197 24;
+  --accent-soft: 245 197 66;
+  --lumen: 214 160 40;
 
   --todo: 120 126 138;
   --progress: 37 99 235;
@@ -64,9 +101,15 @@
   --done: 22 163 74;
 
   --danger: 220 38 38;
-  --warn: 202 138 4;
+  --warn: 180 120 4;
   --ok: 22 163 74;
   --info: 37 99 235;
+
+  --glass-tint: 255 255 255;
+  --glass-alpha: 0.78;
+  --glass-blur: 26px;
+  --glass-edge: 0.12;
+  --glass-sheen: 0.9;
 
   color-scheme: light;
 }
@@ -84,39 +127,75 @@ body {
   background: rgb(var(--bg));
   color: rgb(var(--text));
   font-family: var(--font-sans);
+  font-size: 13.5px;
+  /* Apple's move: tighten as the type grows, open up as it shrinks. The base
+     sits just fractionally tight so dense rows do not feel loose. */
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: "ss01", "cv01";
+}
+
+/* Optical tracking scale. Type carries the personality, so the scale is a real
+   ramp rather than a set of one-off values sprinkled through components. */
+h1, .t-display {
+  letter-spacing: -0.028em;
+  font-weight: 600;
+  line-height: 1.06;
+}
+h2, .t-title {
+  letter-spacing: -0.021em;
+  font-weight: 600;
+  line-height: 1.18;
+}
+h3, .t-heading {
+  letter-spacing: -0.014em;
+  font-weight: 590;
+  line-height: 1.3;
+}
+.t-meta {
+  letter-spacing: 0.004em;
+}
+/* Used sparingly. See the eyebrow restraint rule in the UI skills: at most one
+   per three sections. */
+.t-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgb(var(--text-faint));
 }
 
 ::selection {
-  background: rgb(var(--accent) / 0.28);
+  background: rgb(var(--accent) / 0.26);
   color: rgb(var(--text));
 }
 
-/* Focus ring — visible but tasteful, gold-tinted */
+/* Focus ring — the light, picking out the focused element. */
 :focus-visible {
-  outline: 2px solid rgb(var(--accent) / 0.55);
-  outline-offset: 1px;
+  outline: 2px solid rgb(var(--accent) / 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
-/* Thin, self-effacing scrollbars — the Linear/Notion feel */
+/* Thin, self-effacing scrollbars. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(var(--border-strong)) transparent;
+  scrollbar-color: rgb(var(--hairline) / 0.14) transparent;
 }
 *::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgb(var(--border-strong));
+  background: rgb(var(--hairline) / 0.13);
   border-radius: 999px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--text-faint));
+  background: rgb(var(--hairline) / 0.22);
   background-clip: content-box;
 }
 *::-webkit-scrollbar-corner {
@@ -124,38 +203,173 @@ body {
 }
 
 @layer components {
-  /* Frosted panel used for popovers, the standup card, command menus */
+  /* ---------------------------------------------------------------------
+     The ground. A fixed moonlight wash from the top-left plus a colder fall
+     to the bottom-right. Fixed, not scrolled, so the light source stays put
+     while content moves past it — that is what sells the glass above it.
+     --------------------------------------------------------------------- */
+  .moonlit {
+    position: relative;
+    background-color: rgb(var(--bg));
+  }
+  .moonlit::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        62% 52% at 2% -6%,
+        rgb(var(--lumen) / 0.16) 0%,
+        rgb(var(--lumen) / 0.06) 30%,
+        transparent 66%
+      ),
+      radial-gradient(
+        46% 40% at 98% 2%,
+        rgb(var(--progress) / 0.075) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        120% 100% at 50% 110%,
+        rgb(var(--bg-deep)) 0%,
+        transparent 62%
+      );
+  }
+  .light .moonlit::before {
+    background:
+      radial-gradient(60% 50% at 2% -6%, rgb(var(--lumen) / 0.16) 0%, transparent 60%),
+      radial-gradient(120% 100% at 50% 112%, rgb(var(--bg-deep) / 0.55) 0%, transparent 58%);
+  }
+  .light .glass {
+    background:
+      linear-gradient(158deg, rgb(255 255 255 / 0.7) 0%, rgb(255 255 255 / 0.35) 60%),
+      rgb(var(--glass-tint) / var(--glass-alpha));
+    border-color: rgb(var(--border-strong));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+  .light .glass-panel {
+    border-color: rgb(var(--border-strong));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.95),
+      0 1px 2px rgb(15 23 42 / 0.06),
+      0 22px 50px -18px rgb(15 23 42 / 0.22);
+  }
+
+  /* ---------------------------------------------------------------------
+     Glass. A web frosted-glass approximation of the Apple materials idea —
+     this is NOT Apple's Liquid Glass, which is a native platform material
+     with no public web implementation. Four layers do the work:
+       1. a translucent tint so the ground shows through
+       2. a backdrop blur + saturation lift so what shows through is pleasant
+       3. a top-left-to-bottom-right sheen, matching the light source
+       4. an inset hairline on the top edge — the lit rim of a real edge
+     --------------------------------------------------------------------- */
   .glass {
-    background: rgb(var(--surface) / 0.85);
-    backdrop-filter: blur(14px) saturate(1.2);
-    border: 1px solid rgb(var(--border));
+    position: relative;
+    isolation: isolate;
+    background:
+      /* the corner the light actually strikes */
+      radial-gradient(
+        120% 80% at 0% 0%,
+        rgb(var(--lumen) / 0.05) 0%,
+        transparent 58%
+      ),
+      linear-gradient(
+        158deg,
+        rgb(var(--hairline) / 0.08) 0%,
+        rgb(var(--hairline) / 0.022) 38%,
+        rgb(var(--hairline) / 0) 82%
+      ),
+      rgb(var(--glass-tint) / var(--glass-alpha));
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
+    border: 1px solid rgb(var(--hairline) / var(--glass-edge));
+    box-shadow:
+      inset 0 1px 0 rgb(var(--hairline) / var(--glass-sheen)),
+      inset 0 -1px 0 rgb(var(--hairline) / 0.03);
   }
 
-  /* Standard raised card */
+  /* A floating glass panel: glass plus the shadow that lifts it off the ground. */
+  .glass-panel {
+    @apply glass;
+    border-color: rgb(var(--hairline) / 0.14);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--hairline) / 0.2),
+      inset 1px 0 0 rgb(var(--hairline) / 0.06),
+      inset 0 -1px 0 rgb(var(--hairline) / 0.03),
+      0 2px 6px rgb(0 0 0 / 0.4),
+      0 30px 70px -20px rgb(0 0 0 / 0.75);
+  }
+
+  /* Standard opaque card. Separation is a hairline plus a surface step, not a
+     heavy shadow — shadows are reserved for layers that genuinely float. */
   .card {
-    background: rgb(var(--surface));
-    border: 1px solid rgb(var(--border));
-    border-radius: 11px;
+    background: rgb(var(--surface) / 0.72);
+    border: 1px solid rgb(var(--hairline) / 0.07);
+    border-radius: 14px;
+    box-shadow: inset 0 1px 0 rgb(var(--hairline) / 0.045);
     transition:
-      border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      border-color 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .light .card {
+    background: rgb(var(--surface));
+    border-color: rgb(var(--border));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   }
 
-  /* Subtle top-lit gradient on hero surfaces */
+  /* An interactive card lifts fractionally into the light on hover. */
+  .card-hover:hover {
+    border-color: rgb(var(--hairline) / 0.13);
+    background: rgb(var(--surface-2) / 0.72);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--hairline) / 0.07),
+      0 12px 28px -14px rgb(0 0 0 / 0.6);
+  }
+
+  /* Subtle top-lit gradient for hero surfaces. */
   .lit {
     background-image: linear-gradient(
-      180deg,
-      rgb(var(--surface-2)) 0%,
-      rgb(var(--surface)) 42%
+      168deg,
+      rgb(var(--hairline) / 0.045) 0%,
+      rgb(var(--hairline) / 0) 46%
     );
   }
 
-  /* Monospace metadata (IDs, timestamps) */
+  /* Monospace metadata (IDs, counts, timestamps). */
   .mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
+  }
+
+  /* The active-nav rail: a short gold bar that reads as the light catching
+     the selected row. Used by the sidebar and the view tabs. */
+  .rail {
+    position: relative;
+  }
+  .rail::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 50%;
+    height: 15px;
+    width: 2px;
+    translate: 0 -50%;
+    border-radius: 999px;
+    background: rgb(var(--accent));
+    box-shadow: 0 0 10px 0 rgb(var(--accent) / 0.55);
+  }
+}
+
+@media (min-width: 640px) {
+  :root,
+  .dark,
+  .light {
+    --tree-indent: 20px;
   }
 }
 
@@ -186,8 +400,8 @@ body {
   /* Hover lift for interactive cards/buttons. */
   .lift {
     transition:
-      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+      transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .lift:hover {
     transform: translateY(-2px);
@@ -196,7 +410,12 @@ body {
     transform: translateY(0);
   }
 
-  /* Loading shimmer for skeleton states */
+  /* Physical press. Applied to every control so the whole app feels tactile. */
+  .press:active {
+    transform: scale(0.975);
+  }
+
+  /* Loading shimmer for skeleton states. */
   .shimmer {
     position: relative;
     overflow: hidden;
@@ -209,14 +428,27 @@ body {
     background: linear-gradient(
       90deg,
       transparent,
-      rgb(var(--text) / 0.06),
+      rgb(var(--hairline) / 0.06),
       transparent
     );
-    animation: shimmer 1.5s infinite;
+    animation: shimmer 1.6s infinite;
+  }
+
+  /* Text set in the light itself. Used once per screen at most. */
+  .text-lumen {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--lumen)) 0%,
+      rgb(var(--accent)) 46%,
+      rgb(var(--accent) / 0.75) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }
 
-/* React Flow (mind map) — themed to match the dark/light tokens. */
+/* React Flow (mind map) — themed to match the tokens. */
 .mindmap .react-flow__controls-button {
   background: rgb(var(--surface));
   border-bottom: 1px solid rgb(var(--border));
@@ -241,6 +473,24 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Users who ask for less transparency get solid slabs instead of glass. The
+   layout, contrast and hierarchy all survive without the blur. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-panel {
+    background: rgb(var(--surface));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: rgb(var(--border-strong));
+  }
+  .card {
+    background: rgb(var(--surface));
+  }
+  .moonlit::before {
+    display: none;
   }
 }
 

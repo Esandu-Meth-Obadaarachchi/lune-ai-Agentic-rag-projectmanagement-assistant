@@ -79,13 +79,14 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-bg">
-      {/* Ambient gold glow + fine grid */}
+    <div className="moonlit relative min-h-[100dvh] overflow-hidden">
+      {/* A second, warmer pool of light behind the hero, on the same axis as the
+          ground wash. The grid below gives the glass something to refract. */}
       <div
-        className="pointer-events-none fixed inset-0 opacity-[0.5]"
+        className="pointer-events-none fixed inset-0"
         style={{
           background:
-            "radial-gradient(60rem 40rem at 72% -10%, rgb(245 197 24 / 0.10), transparent 60%), radial-gradient(50rem 40rem at 8% 110%, rgb(96 165 250 / 0.07), transparent 55%)",
+            "radial-gradient(55rem 38rem at 74% -12%, rgb(var(--accent) / 0.1), transparent 58%), radial-gradient(45rem 38rem at 4% 108%, rgb(var(--progress) / 0.06), transparent 55%)",
         }}
       />
       <div
@@ -102,12 +103,12 @@ export default function LandingPage() {
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2.5">
           <Logo size={26} />
-          <span className="text-[15px] font-semibold tracking-tight">Lune AI</span>
+          <span className="t-title text-base">Lune<span className="ml-1 font-medium text-text-faint">AI</span></span>
         </div>
         <button
           onClick={handleSignIn}
           disabled={busy || !configured}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3.5 text-[13px] font-medium text-text transition-all hover:border-accent/40 hover:text-accent disabled:opacity-50"
+          className="press glass inline-flex h-9 items-center gap-2 rounded-md px-3.5 text-sm font-medium text-text transition-all hover:border-accent/40 hover:text-accent disabled:opacity-50"
         >
           <GoogleGlyph size={15} /> Sign in
         </button>
@@ -120,7 +121,7 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-2xs font-medium text-text-muted">
+          <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-hairline/[0.08] bg-surface px-3 py-1 text-2xs font-medium text-text-muted">
             <Sparkles className="h-3.5 w-3.5 text-accent" /> Project manager + knowledge base + Claude agent
           </div>
           <h1 className="text-[2.5rem] font-semibold leading-[1.04] tracking-tight sm:text-[3.1rem]">
@@ -136,13 +137,13 @@ export default function LandingPage() {
             <button
               onClick={handleSignIn}
               disabled={busy || !configured}
-              className="group inline-flex h-11 items-center gap-3 rounded-xl bg-white px-5 font-medium text-[#1f2430] shadow-card transition-all hover:brightness-95 active:translate-y-px disabled:opacity-50"
+              className="group inline-flex h-11 items-center gap-3 rounded-xl bg-white px-5 font-medium text-[#1f2430] shadow-e1 transition-all hover:brightness-95 active:translate-y-px disabled:opacity-50"
             >
               <GoogleGlyph />
               {busy ? "Opening Google…" : "Continue with Google"}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
-            <a href="#features" className="text-[13px] font-medium text-text-muted hover:text-text">
+            <a href="#features" className="text-sm font-medium text-text-muted hover:text-text">
               See everything it does →
             </a>
           </div>
@@ -167,7 +168,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-          className="lit rounded-2xl border border-border p-3 shadow-pop"
+          className="glass-panel rounded-2xl p-3"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -177,17 +178,17 @@ export default function LandingPage() {
                 key={s.id}
                 onClick={() => setActive(s.id)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-2xs font-medium transition-all",
+                  "press inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-2xs font-medium transition-all duration-200",
                   active === s.id
-                    ? "bg-accent/15 text-accent"
-                    : "text-text-muted hover:bg-surface-2 hover:text-text"
+                    ? "bg-accent/15 text-accent shadow-[inset_0_1px_0_rgb(var(--hairline)/0.08)]"
+                    : "text-text-muted hover:bg-hairline/[0.06] hover:text-text"
                 )}
               >
                 <s.icon className="h-3.5 w-3.5" /> {s.label}
               </button>
             ))}
           </div>
-          <div className="relative h-[300px] overflow-hidden rounded-xl border border-border bg-bg/60">
+          <div className="relative h-[300px] overflow-hidden rounded-xl border border-hairline/[0.06] bg-bg-deep/50">
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
@@ -201,7 +202,7 @@ export default function LandingPage() {
               </motion.div>
             </AnimatePresence>
           </div>
-          <p className="mt-3 px-1 text-[13px] leading-snug text-text-muted">
+          <p className="mt-3 px-1 text-sm leading-snug text-text-muted">
             {SHOWCASE.find((s) => s.id === active)?.blurb}
           </p>
         </motion.div>
@@ -225,11 +226,11 @@ export default function LandingPage() {
               transition={{ duration: 0.4, delay: (i % 4) * 0.05, ease: [0.22, 1, 0.36, 1] }}
               className="card lift p-4"
             >
-              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface-2 text-accent">
+              <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg border border-hairline/[0.08] bg-surface-2 text-accent">
                 <f.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </div>
               <div className="text-[14px] font-medium text-text">{f.title}</div>
-              <div className="mt-1 text-[13px] leading-snug text-text-muted">{f.body}</div>
+              <div className="mt-1 text-sm leading-snug text-text-muted">{f.body}</div>
             </motion.div>
           ))}
         </div>
@@ -237,7 +238,7 @@ export default function LandingPage() {
 
       {/* Closing CTA */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
-        <div className="lit relative overflow-hidden rounded-2xl border border-border p-8 text-center shadow-pop sm:p-12">
+        <div className="lit relative overflow-hidden rounded-2xl border border-hairline/[0.08] p-8 text-center shadow-e3 sm:p-12">
           <div
             className="pointer-events-none absolute inset-0 opacity-60"
             style={{ background: "radial-gradient(30rem 16rem at 50% -20%, rgb(245 197 24 / 0.14), transparent 70%)" }}
@@ -250,7 +251,7 @@ export default function LandingPage() {
             <button
               onClick={handleSignIn}
               disabled={busy || !configured}
-              className="group mx-auto mt-6 inline-flex h-11 items-center gap-3 rounded-xl bg-white px-5 font-medium text-[#1f2430] shadow-card transition-all hover:brightness-95 active:translate-y-px disabled:opacity-50"
+              className="group mx-auto mt-6 inline-flex h-11 items-center gap-3 rounded-xl bg-white px-5 font-medium text-[#1f2430] shadow-e1 transition-all hover:brightness-95 active:translate-y-px disabled:opacity-50"
             >
               <GoogleGlyph />
               {busy ? "Opening Google…" : "Continue with Google"}
@@ -280,9 +281,9 @@ const dot = (c: string) => <span className={cn("h-2 w-2 shrink-0 rounded-full", 
 
 function Row({ color, label, meta }: { color: string; label: string; meta?: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2">
+    <div className="flex items-center gap-2 rounded-md border border-hairline/[0.08] bg-surface px-2.5 py-2">
       {dot(color)}
-      <span className="flex-1 truncate text-[12px] text-text">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[12px] text-text">{label}</span>
       {meta && <span className="text-[10px] text-text-faint">{meta}</span>}
     </div>
   );
@@ -298,7 +299,7 @@ function TodayPreview() {
         <Row color="bg-todo" label="Follow up: Predictiv AI" meta="14:00" />
         <Row color="bg-todo" label="Prep Cresco application" />
       </div>
-      <div className="rounded-lg border border-border bg-surface p-2.5">
+      <div className="rounded-lg border border-hairline/[0.08] bg-surface p-2.5">
         <div className="mb-1.5 text-2xs font-medium text-accent">Day planner</div>
         <div className="space-y-1.5">
           {["09:00  Deep work — solar", "11:30  ML retrain", "14:00  Calls", "16:00  Gradify build"].map((l) => (
@@ -332,7 +333,7 @@ function MapPreview() {
 
 function Node({ className, label }: { className?: string; label: string }) {
   return (
-    <div className={cn("absolute rounded-lg border border-border bg-surface px-2 py-1 text-[10px] text-text shadow-card", className)}>
+    <div className={cn("absolute rounded-lg border border-hairline/[0.08] bg-surface px-2 py-1 text-[10px] text-text shadow-e1", className)}>
       {label}
     </div>
   );
@@ -370,12 +371,12 @@ function SharePreview() {
     <div className="space-y-2">
       <div className="text-2xs font-semibold uppercase tracking-wider text-text-faint">Members</div>
       {people.map((p) => (
-        <div key={p.n} className="flex items-center gap-2.5 rounded-md border border-border bg-surface px-2.5 py-2">
+        <div key={p.n} className="flex items-center gap-2.5 rounded-md border border-hairline/[0.08] bg-surface px-2.5 py-2">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-surface-3 text-[10px] font-semibold text-text">
             {p.n[0]}
           </span>
           <span className="flex-1 text-[12px] text-text">{p.n}</span>
-          <span className={cn("rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px]", p.c)}>{p.r}</span>
+          <span className={cn("rounded border border-hairline/[0.08] bg-surface-2 px-1.5 py-0.5 text-[10px]", p.c)}>{p.r}</span>
         </div>
       ))}
     </div>
@@ -388,7 +389,7 @@ function AgentPreview() {
       <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-accent/15 px-3 py-2 text-[12px] text-text">
         What&apos;s blocking the solar dashboard?
       </div>
-      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-surface px-3 py-2 text-[12px] text-text-muted">
+      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-hairline/[0.08] bg-surface px-3 py-2 text-[12px] text-text-muted">
         The Excel upload timeout is blocked and overdue. I&apos;ve flagged it urgent and drafted a subtask to profile large files.
       </div>
       <div className="flex items-center gap-1.5 text-[10px] text-text-faint">

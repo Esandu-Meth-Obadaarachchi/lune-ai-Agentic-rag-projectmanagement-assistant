@@ -1,10 +1,22 @@
 "use client";
 
-import { CheckCircle2, FileText, ListChecks, PencilLine } from "lucide-react";
+import { useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  FileText,
+  HelpCircle,
+  ListChecks,
+  PencilLine,
+  Quote,
+  X,
+} from "lucide-react";
 import type { AgentCard, RetrievedChunk } from "@/lib/types";
 import { statusMeta } from "@/lib/constants";
 import { DueDateChip } from "@/components/ui/DueDateChip";
 import { PriorityDot } from "@/components/ui/PriorityIndicator";
+import { Button } from "@/components/ui/Button";
+import { postJSON } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface TaskLike {
@@ -20,19 +32,29 @@ interface TaskLike {
   subtasks?: number;
 }
 
-export function AgentCards({ cards }: { cards: AgentCard[] }) {
+/** Send a follow-up turn on the user's behalf — how the interactive cards
+ *  (an option button, an approval confirmation) continue the conversation. */
+export type ReplyFn = (message: string) => void;
+
+export function AgentCards({ cards, onReply }: { cards: AgentCard[]; onReply?: ReplyFn }) {
   if (!cards.length) return null;
   return (
     <div className="mt-2.5 space-y-2">
       {cards.map((c, i) => (
-        <CardView key={i} card={c} />
+        <CardView key={i} card={c} onReply={onReply} />
       ))}
     </div>
   );
 }
 
-function CardView({ card }: { card: AgentCard }) {
+function CardView({ card, onReply }: { card: AgentCard; onReply?: ReplyFn }) {
   switch (card.kind) {
+    case "clarify":
+      return <Clarify data={card.data as ClarifyData} onReply={onReply} />;
+    case "example_request":
+      return <ExampleRequest data={card.data as { of: string; why?: string | null }} />;
+    case "approval":
+      return <Approval data={card.data as ApprovalData} onReply={onReply} />;
     case "created_task":
       return <ActionTask data={card.data as TaskLike} label="Created" icon={<CheckCircle2 className="h-3.5 w-3.5 text-done" />} />;
     case "updated_task":
@@ -52,7 +74,7 @@ function ActionTask({ data, label, icon }: { data: TaskLike; label: string; icon
     <div className="card flex items-center gap-2.5 p-2.5">
       {icon}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-text">{data.title}</div>
+        <div className="truncate text-sm font-medium text-text">{data.title}</div>
         <div className="text-2xs text-text-faint">
           {label}
           {data.project ? ` · ${data.project}` : ""}
@@ -66,13 +88,13 @@ function ActionTask({ data, label, icon }: { data: TaskLike; label: string; icon
 
 function TaskList({ data }: { data: TaskLike[] }) {
   if (!data.length)
-    return <div className="card p-3 text-[13px] text-text-muted">No matching tasks.</div>;
+    return <div className="card p-3 text-sm text-text-muted">No matching tasks.</div>;
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
         <ListChecks className="h-3.5 w-3.5" /> {data.length} task{data.length === 1 ? "" : "s"}
       </div>
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-hairline/[0.042]">
         {data.slice(0, 8).map((t) => {
           const meta = statusMeta((t.status as never) ?? "todo");
           return (
@@ -80,7 +102,7 @@ function TaskList({ data }: { data: TaskLike[] }) {
               <span className={cn("h-2 w-2 shrink-0 rounded-full", meta.dot)} />
               <span
                 className={cn(
-                  "flex-1 truncate text-[13px]",
+                  "flex-1 truncate text-sm",
                   t.status === "done" ? "text-text-faint line-through" : "text-text"
                 )}
               >
@@ -103,15 +125,15 @@ function Sources({ data }: { data: RetrievedChunk[] }) {
   if (!data.length) return null;
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
         <FileText className="h-3.5 w-3.5" /> Sources
       </div>
-      <div className="divide-y divide-border/60">
+      <div className="divide-y divide-hairline/[0.042]">
         {data.slice(0, 4).map((s) => (
           <div key={s.id} className="px-3 py-2">
             <div className="flex items-center gap-2">
               <FileText className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-              <span className="flex-1 truncate text-[13px] font-medium text-text">{s.source}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{s.source}</span>
               {s.project && <span className="text-2xs text-text-faint">{s.project}</span>}
               <span className="mono text-2xs text-text-faint">{s.score.toFixed(2)}</span>
             </div>
@@ -120,6 +142,149 @@ function Sources({ data }: { data: RetrievedChunk[] }) {
             </p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+
+/* ---------------------- the agent asked instead of acting ---------------------- */
+
+interface ClarifyData {
+  question: string;
+  options?: string[];
+  because?: string | null;
+}
+
+/**
+ * A question the agent stopped to ask. The options are buttons rather than text,
+ * because the whole reason the agent asked is that it already knows the
+ * candidates — making the user retype one of them would waste the round trip
+ * that asking was meant to save.
+ */
+function Clarify({ data, onReply }: { data: ClarifyData; onReply?: ReplyFn }) {
+  return (
+    <div className="card border-accent/25 p-3">
+      <div className="flex items-start gap-2">
+        <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-text">{data.question}</div>
+          {data.because && <div className="mt-0.5 text-2xs text-text-faint">{data.because}</div>}
+          {!!data.options?.length && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {data.options.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => onReply?.(option)}
+                  disabled={!onReply}
+                  className="rounded-full border border-hairline/[0.12] bg-surface-2 px-2.5 py-1 text-2xs text-text transition-colors hover:border-accent/40 hover:text-accent disabled:opacity-50"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The agent wants to see how the user writes this kind of thing before writing it. */
+function ExampleRequest({ data }: { data: { of: string; why?: string | null } }) {
+  return (
+    <div className="card p-3">
+      <div className="flex items-start gap-2">
+        <Quote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-muted" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm text-text">
+            Paste an example of <span className="font-medium">{data.of}</span> and I&apos;ll match
+            its format.
+          </div>
+          {data.why && <div className="mt-0.5 text-2xs text-text-faint">{data.why}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- a held plan, pending approval -------------------------- */
+
+interface ApprovalData {
+  proposalId: string;
+  action: string;
+  project: string;
+  count: number;
+  outline: string[];
+}
+
+/**
+ * A write large enough that the agent stopped to show its work first.
+ *
+ * Approving posts the stored plan back, and the server runs exactly that tree
+ * with no model in the loop — so what is listed here is precisely what gets
+ * created. Nothing has been written at the point this card renders.
+ */
+function Approval({ data, onReply }: { data: ApprovalData; onReply?: ReplyFn }) {
+  const [state, setState] = useState<"open" | "working" | "approved" | "cancelled">("open");
+  const [error, setError] = useState("");
+
+  const decide = async (action: "approve" | "cancel") => {
+    setState("working");
+    setError("");
+    try {
+      const res = await postJSON<{ status: string; created: number; message: string }>(
+        `/api/proposals/${data.proposalId}`,
+        { action }
+      );
+      setState(res.status === "approved" ? "approved" : "cancelled");
+      if (res.status === "approved" && res.created > 0) onReply?.(`(${res.message})`);
+    } catch (e) {
+      setState("open");
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    }
+  };
+
+  return (
+    <div className="card overflow-hidden border-accent/25">
+      <div className="flex items-center gap-1.5 border-b border-hairline/[0.08] px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-text-faint">
+        <ListChecks className="h-3.5 w-3.5" /> {data.count} tasks · {data.project} · not yet created
+      </div>
+      <div className="max-h-52 overflow-y-auto px-3 py-2">
+        {data.outline.map((line, i) => (
+          <div
+            key={i}
+            className="mono whitespace-pre text-2xs leading-relaxed text-text-muted"
+          >
+            {line}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 border-t border-hairline/[0.08] px-3 py-2">
+        {state === "approved" ? (
+          <span className="inline-flex items-center gap-1 text-2xs text-done">
+            <Check className="h-3.5 w-3.5" /> Created.
+          </span>
+        ) : state === "cancelled" ? (
+          <span className="inline-flex items-center gap-1 text-2xs text-text-faint">
+            <X className="h-3.5 w-3.5" /> Discarded. Nothing was created.
+          </span>
+        ) : (
+          <>
+            <Button size="sm" variant="primary" onClick={() => decide("approve")} disabled={state === "working"}>
+              {state === "working" ? "Creating…" : `Create ${data.count} tasks`}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => decide("cancel")}
+              disabled={state === "working"}
+            >
+              Discard
+            </Button>
+            {error && <span className="text-2xs text-danger">{error}</span>}
+          </>
+        )}
       </div>
     </div>
   );
